@@ -112,14 +112,6 @@ const AppWrapper = observer(() => {
         // Fetch the XML files and parse them
         const fetchBots = async () => {
             const botFiles = [
-                'Candle-mine 22.xml',
-                'DeepSeek OVER 3 BOT.xml',
-                'DENARA PRO BOT.xml',
-                'D-Xpert Speed star Bot V2.xml',
-                'Even_Odd Killer bot.xml',
-                'MKOREAN SV 7 2025.xml',
-                'Over 1 Recovery Over 4.xml',
-                'Over 1 Under 8 Auto-Switch Pro.xml',
                 'Upgraded Candlemine.xml',
                 // Add more paths to your XML files
             ];
