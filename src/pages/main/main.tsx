@@ -120,8 +120,6 @@ const AppWrapper = observer(() => {
                 'MKOREAN SV 7 2025.xml',
                 'Over 1 Recovery Over 4.xml',
                 'Over 1 Under 8 Auto-Switch Pro.xml',
-                'OVER 3 AI Bot.xml',
-                'Over-Sight-Digit 2 Ai DBot.xml',
                 'Upgraded Candlemine.xml',
                 // Add more paths to your XML files
             ];
