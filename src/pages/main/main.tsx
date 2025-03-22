@@ -113,6 +113,7 @@ const AppWrapper = observer(() => {
         const fetchBots = async () => {
             const botFiles = [
                 'Upgraded Candlemine.xml',
+                'Envy-differ.xml',
                 // Add more paths to your XML files
             ];
             const botPromises = botFiles.map(async (file) => {
