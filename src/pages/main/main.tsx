@@ -113,6 +113,16 @@ const AppWrapper = observer(() => {
         const fetchBots = async () => {
             const botFiles = [
                 'Upgraded Candlemine.xml',
+                'Mega Heist Robot.xml',
+                'BOT V3.xml',
+                'MD MASTER BOT Pro. (2).xml',
+                'NODA24 By Still Amazing.xml',
+                'Bull Bear.xml',
+                'high low .xml',
+                'DFK Money Magnet {Digit Over 1 Under 8}.xml',
+                'Orion Ver2 Still Amazing.xml',
+                'Nemo 0.2 vip binary-bot.xml',
+                'Top-notch 2.xml',
                 // Add more paths to your XML files
             ];
             const botPromises = botFiles.map(async (file) => {
