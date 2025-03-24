@@ -310,6 +310,7 @@
         height: var(--tab-content-height);
         width: 100%;
         transition: all 0.4s;
+        overflow: hidden;
 
         @include mobile-or-tablet-screen {
             height: var(--tab-content-height-mobile);
@@ -332,6 +333,22 @@
 
         &--modal {
             width: 40rem;
+        }
+
+        iframe {
+            display: block;
+            width: 100%;
+            border: none;
+            background: var(--general-main-1);
+            transition: width 0.4s ease;
+            overflow-y: scroll !important;
+            max-height: none;
+            position: relative;
+
+            @include mobile-or-tablet-screen {
+                width: 100%;
+                height: calc(100vh - 10rem) !important;
+            }
         }
     }
 
