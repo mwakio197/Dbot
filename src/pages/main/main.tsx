@@ -208,13 +208,13 @@ const AppWrapper = observer(() => {
                             </Suspense>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
-                            <iframe src='ai' width='100%' height='700px' frameBorder='0'></iframe>
+                            <iframe src='ai' width='100%' height='600px' frameBorder='0'></iframe>
                         </div>
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signals' /></>} id='id-signals'>
-                            <iframe src='signals' width='100%' height='700px' frameBorder='0'></iframe>
+                            <iframe src='signals' width='100%' height='600px' frameBorder='0'></iframe>
                         </div>
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
-                            <iframe src='https://binaryfx.site/acc-center' width='100%' height='670px' bottom-padding='20' frameBorder='0'></iframe>
+                            <iframe src='https://binaryfx.site/acc-center' width='100%' height='600px' bottom-padding='20' frameBorder='0'></iframe>
                         </div>
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
                             <div className='free-bots'>
