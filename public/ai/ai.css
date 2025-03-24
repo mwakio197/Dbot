@@ -1,0 +1,258 @@
+body {
+    font-family: 'Rubik', Arial, sans-serif;
+    margin: 10px;
+    padding: 10px;
+    background-color: #f9fafb;
+    color: #333;
+    line-height: 1.2;
+}
+
+.container {
+    width: 90%;
+    max-width: 550px;
+    margin: 0 auto;
+    padding: 10px;
+}
+
+header {
+    background-color: #ffffff;
+    color: rgb(0, 0, 0);
+    padding: 1.5rem 0;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+}
+
+header .controls {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+header .control-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+header label {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+header select, header input {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 12px;
+    width: 200px;
+    height: 33px !important; /* Ensure height is consistently applied */
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+header select:hover, header input:hover {
+    border-color: #0056a3;
+    box-shadow: 0 0 5px rgba(0, 86, 163, 0.5);
+}
+
+main {
+    padding: 0 0;
+    background-color: #ffffff;
+}
+
+section {
+    background: white;
+    margin: 10px 0;
+    padding: 0px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+h2 {
+    color: #000000;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+p1 {
+    color: #8b74f1;
+    margin-bottom: 1rem;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+}
+
+p2 {
+    color: #5111ff;
+    margin-bottom: 1rem;
+    font-size: 18px;
+    font-weight: 600;
+}
+canvas {
+    max-width: 100%;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    max-height: 120px;
+    display: block;
+}
+
+#digit-display-container {
+    display:flex;
+    justify-content:center;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 1rem;
+}
+
+.digit-box {
+    width: 35px;
+    height: 35px;
+    padding-top: 1px;
+    display: flex;
+    justify-content:center;
+    align-items: center;
+    font-size: 1.4rem;
+    font-weight:500;
+    border-radius: 50%;
+    border: 4px solid #d3d3d3;
+    background-color: white;
+    color: #333;
+    transition: all 0.3s ease;
+}
+
+.digit-box.lowest {
+    border-color: rgba(255, 0, 0, 1);
+}
+
+.digit-box.highest {
+    border-color: #17db4e;
+}
+
+.digit-box.current {
+    border-color: rgba(255, 223, 0, 1) !important; /* Bright yellow border */
+    background-color: rgba(255, 223, 0, 0.2); /* Light yellow background */
+    box-shadow: 0 0 10px rgba(255, 223, 0, 0.8); /* Glow effect */
+}
+
+.digit-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    margin-top: 15px;
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+.digit-container .arrow {
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 10px solid rgba(255, 223, 0, 1);
+    position: absolute;
+    top: -15px;
+    display: none;
+}
+
+.digit-container.current .arrow {
+    display: block;
+}
+
+.digit-container.current .digit-box {
+    border-color: rgba(255, 223, 0, 1) !important; /* Bright yellow border */
+    background-color: rgba(255, 223, 0, 0.2); /* Light yellow background */
+    box-shadow: 0 0 10px rgba(255, 223, 0, 0.8); /* Glow effect */
+}
+
+.digit-percentage {
+    font-size: 0.9rem;
+    color: #555;
+    margin-top: 0.3rem;
+}
+
+#last-50-oe-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    justify-content: left;
+    margin-top: 1rem;
+    border-width: 1px;
+    border-color: #000000;
+}
+
+.oe-box {
+    width: 25px;
+    height: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    border-radius: 5px;
+    color: #333;
+    border: 1px solid #ccc;
+    transition: all 0.3s ease;
+}
+
+.oe-box.even {
+    background-color: #8BEDA6;
+}
+
+.oe-box.odd {
+    background-color: #FF7F7F;
+}
+
+#current-price {
+    font-size: 20px;
+    font-weight:600;
+    color: #5900ff;
+    margin-bottom: 1rem;
+    display: block;
+    text-align: center;;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    header .controls {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .digit-box {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+
+    .oe-box {
+        width: 26px;
+        height: 26px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    .digit-box {
+        width: 35px;
+        height: 35px;
+        font-size: 24px;
+    }
+
+    .oe-box {
+        width: 26px;
+        height: 26px;
+        font-size: 14px;
+    }
+}
