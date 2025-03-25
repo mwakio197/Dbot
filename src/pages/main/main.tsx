@@ -228,7 +228,7 @@ const AppWrapper = observer(() => {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe src='https://binaryfx.site/acc-center' frameBorder='0' />
+                                <iframe src='https://binaryfx.site/acc-center' height='600px' frameBorder='0' />
                             </div>
                         </div>
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
