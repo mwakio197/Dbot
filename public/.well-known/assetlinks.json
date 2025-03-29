@@ -4,7 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.example.binaryfx",
-      "sha256_cert_fingerprints": ["52:16:F8:9B:68:1F:0F:27:F6:D6:99:2B:4A:30:09:9B:08:31:25:FE:38:9E:56:46:4C:9D:CF:9D:B6:F1:78:1A"]
+      "sha256_cert_fingerprints": ["4C:1A:07:5B:23:26:EA:90:D7:E1:EA:B1:29:6A:18:8B:F1:65:32:70:55:B9:9E:81:EC:92:92:BF:0A:71:33:24"]
     }
   }
 ]
