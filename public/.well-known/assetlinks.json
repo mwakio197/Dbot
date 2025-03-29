@@ -3,8 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.example.binaryfx",
-      "sha256_cert_fingerprints": ["6D:3F:C5:3A:B5:43:B2:6D:A4:0D:75:B9:8B:0C:A7:E6:4F:54:38:F7:0B:2B:EC:24:01:72:A9:47:4F:56:02:70"]
+      "package_name": "com.binaryfx.site",
+      "sha256_cert_fingerprints":
+        ["C2:39:BE:22:88:FA:F3:08:6E:AC:C3:E6:2B:56:3E:81:34:EC:D7:B7:57:EE:DF:53:77:96:72:B3:73:58:CD:5F"]
     }
   }
 ]
