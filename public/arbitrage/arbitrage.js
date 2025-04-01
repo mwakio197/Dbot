@@ -1,5 +1,4 @@
 let derivWs;
-let isConnected = false;
 let tradingToken = localStorage.getItem('authToken');
 let activeLoginId = localStorage.getItem('active_loginid');
 let tickHistory = [];
@@ -71,11 +70,6 @@ function validateToken() {
 
 // Replace initTradeWebSocket and use single WebSocket initialization
 function startWebSocket() {
-    if (derivWs?.readyState === WebSocket.OPEN) {
-        console.log('WebSocket already connected');
-        return;
-    }
-
     if (derivWs) {
         derivWs.close();
         tickHistory = [];
@@ -85,21 +79,12 @@ function startWebSocket() {
     
     derivWs.onopen = function() {
         console.log('WebSocket connected');
-        isConnected = true;
         // Authorize first
         if (tradingToken) {
             const authData = { authorize: tradingToken };
             derivWs.send(JSON.stringify(authData));
         }
         requestTickHistory();
-    };
-
-    // Add connection lost handling
-    derivWs.onclose = function() {
-        console.log('WebSocket disconnected');
-        isConnected = false;
-        // Try to reconnect after 1 second
-        setTimeout(startWebSocket, 1000);
     };
     
     derivWs.onmessage = function(event) {
@@ -146,6 +131,10 @@ function startWebSocket() {
         }
     };
 
+    derivWs.onclose = function() {
+        console.log('WebSocket disconnected');
+    };
+    
     derivWs.onerror = function(error) {
         console.error('WebSocket error:', error);
     };
@@ -509,15 +498,6 @@ function updateResultsDisplay() {
     }).join('');
 }
 
-// Add clear history functionality
-function clearTradingHistory() {
-    tradeResults = [];
-    totalWins = 0;
-    totalLosses = 0;
-    updateResultsDisplay();
-    showNotification('Trading history cleared', 'info');
-}
-
 // Symbol change handler
 document.getElementById('symbol').addEventListener('change', function(e) {
     const newSymbol = e.target.value;
@@ -533,12 +513,6 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     if (!validateToken()) {
-        return;
-    }
-
-    if (!isConnected) {
-        showNotification('Waiting for connection...', 'warning');
-        startWebSocket();
         return;
     }
 
@@ -615,31 +589,4 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add fullscreen button event listener
     document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
-
-    // Add clear history button to stats container
-    const statsContainer = document.getElementById('trade-stats');
-    const clearButton = document.createElement('button');
-    clearButton.innerHTML = '🗑️ Clear History';
-    clearButton.className = 'clear-history-btn';
-    clearButton.onclick = clearTradingHistory;
-    statsContainer.appendChild(clearButton);
 });
-
-// Add this CSS to your existing styles
-document.head.insertAdjacentHTML('beforeend', `
-    <style>
-    .clear-history-btn {
-        margin-top: 10px;
-        padding: 5px 10px;
-        background-color: #ff4444;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    .clear-history-btn:hover {
-        background-color: #cc0000;
-    }
-    </style>
-`);
