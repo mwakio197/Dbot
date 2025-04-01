@@ -47,12 +47,24 @@
         <link rel="stylesheet" href="arbitrage/arbitrage.css">
     </head>
 
-    <body class="theme theme--light" data-testid="dt_arbitrage_dashboard">
+    <body class="body theme theme--light">
         <div id="modal_root" class="modal-root"></div>
         <div id="popup_root" class="popup-root"></div>
         <div id="root"></div>
-        <div class="container">
-            <div id="account-balance" class="balance-display"></div>
+        
+        <!-- Update auth container -->
+        <div id="auth-container" class="auth-container">
+            <div class="logo">BINARYFX</div>
+            <p class="auth-description">Start trading with your Deriv account</p>
+            <a href="https://oauth.deriv.com/oauth2/authorize?app_id=70827&l=EN&brand=deriv" class="auth-button">
+                Connect with Deriv
+            </a>
+            <p class="security-text">Secure authentication powered by Deriv.com</p>
+            <p class="security-note">✓ No credentials stored locally</p>
+        </div>
+
+        <!-- Add hidden class to main container -->
+        <div id="main-container" class="container hidden">
             <button id="fullscreen-btn" class="fullscreen-btn">
                 <svg viewBox="0 0 24 24" width="24" height="24">
                     <path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
@@ -156,6 +168,6 @@
                 }
             });
         </script>
-        <script type="module" src="arbitrage/arbitrage.js"></script>
+        <script src="arbitrage/arbitrage.js"></script>
     </body>
 </html>

@@ -7,6 +7,7 @@ let activeContracts = new Map(); // Track active contracts
 let activeProposals = new Map(); // Track active proposals
 let isRunning = false; // Track arbitrage bot state
 let activeTrades = new Map(); // Track active trades
+let isAuthenticated = false; // Track authentication state
 
 let initSurvicateCalled = false;
 let tradeResults = [];
@@ -64,41 +65,33 @@ let clientStore = {
     getActiveAccount() {
         try {
             const active_loginid = localStorage.getItem('active_loginid');
-            if (!active_loginid) {
-                console.error('No active login ID found');
-                return null;
-            }
-
             const accounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
             const account = accounts[active_loginid];
             
-            if (!account?.token) {
-                console.error('No valid token found for account:', active_loginid);
-                return null;
-            }
+            if (!account) return null;
 
-            // Update store state
+            // Update store state with active account info
             this.loginid = active_loginid;
             this.currency = account.currency;
             this.is_logged_in = true;
             this.balance = account.balance || '0';
             
-            console.log('Account initialized:', {
-                loginid: active_loginid,
-                currency: account.currency,
-                balance: account.balance
+            console.log('Active account:', {
+                loginid: this.loginid,
+                currency: this.currency,
+                is_logged_in: this.is_logged_in
             });
             
             return account;
         } catch (error) {
-            console.error('Account initialization failed:', error);
+            console.error('Error getting active account:', error);
             return null;
         }
     },
     initialize() {
         const account = this.getActiveAccount();
-        if (!account?.token) {
-            showNotification('Please log in to trade', 'error');
+        if (!account) {
+            console.error('No active account found during initialization');
             return false;
         }
         return true;
@@ -166,47 +159,45 @@ function validateToken() {
     return clientStore.validateToken();
 }
 
-// Enhance WebSocket connection handling
+// Add authentication state management
+function updateAuthState(authenticated) {
+    isAuthenticated = authenticated;
+    const authContainer = document.getElementById('auth-container');
+    const mainContainer = document.getElementById('main-container');
+    
+    if (authenticated) {
+        authContainer.classList.add('hidden');
+        mainContainer.classList.remove('hidden');
+    } else {
+        authContainer.classList.remove('hidden');
+        mainContainer.classList.add('hidden');
+    }
+}
+
+// Update these constants at the top of the file
+const APP_ID = '1089'; // Official Deriv app ID
+const OAUTH_URL = 'https://oauth.deriv.com/oauth2/authorize';
+const WS_URL = 'wss://ws.binaryws.com/websockets/v3';
+
+// Modify startWebSocket function
 function startWebSocket() {
     if (derivWs) {
-        console.log('Closing existing connection');
         derivWs.close();
         tickHistory = [];
     }
 
-    const activeAccount = clientStore.getActiveAccount();
-    if (!activeAccount?.token) {
-        showNotification('Authentication required', 'error');
+    const token = localStorage.getItem('deriv_token');
+    if (!token) {
+        showNotification('No valid token found', 'error');
+        updateAuthState(false);
         return;
     }
 
-    derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
+    derivWs = new WebSocket(`${WS_URL}?app_id=${APP_ID}`);
     
     derivWs.onopen = function() {
-        console.log('Authorizing connection...');
-        derivWs.send(JSON.stringify({ authorize: activeAccount.token }));
-    };
-
-    // Add connection state monitoring
-    let pingInterval;
-    
-    derivWs.onopen = function() {
-        console.log('WebSocket connected');
-        pingInterval = setInterval(() => {
-            if (derivWs.readyState === WebSocket.OPEN) {
-                derivWs.send(JSON.stringify({ping: 1}));
-            }
-        }, 10000);
-    };
-
-    derivWs.onclose = function() {
-        console.log('Connection closed, cleaning up');
-        clearInterval(pingInterval);
-        setTimeout(startWebSocket, 1000); // Auto reconnect
-    };
-
-    derivWs.onerror = function(error) {
-        console.error('WebSocket error:', error);
+        console.log('WebSocket connected, authorizing...');
+        derivWs.send(JSON.stringify({ authorize: token }));
     };
 
     derivWs.onmessage = function(event) {
@@ -214,6 +205,7 @@ function startWebSocket() {
         
         if (data.error) {
             showNotification(data.error.message, 'error');
+            updateAuthState(false);
             return;
         }
 
@@ -223,6 +215,7 @@ function startWebSocket() {
             clientStore.setIsLoggedIn(true);
             clientStore.setBalance(data.authorize.balance);
             clientStore.setCurrency(data.authorize.currency);
+            updateAuthState(true);
             requestTradeHistory();
             subscribeToBalance();
             return;
@@ -263,6 +256,14 @@ function startWebSocket() {
         if (data.history || data.tick) {
             handleTickData(data);
         }
+    };
+
+    derivWs.onclose = function() {
+        console.log('WebSocket disconnected');
+    };
+    
+    derivWs.onerror = function(error) {
+        console.error('WebSocket error:', error);
     };
 
     // Update storage event listener for account changes
@@ -313,26 +314,22 @@ function handleProfitTableResponse(profit_table) {
     updateResultsDisplay();
 }
 
-// Modify trade response handler
 function handleBuyResponse(buy) {
     if (!buy?.contract_id) {
         console.error('Invalid buy response:', buy);
-        showNotification('Trade failed', 'error');
         return;
     }
 
-    console.log('Trade executed:', buy);
     const contractId = buy.contract_id;
-    
+    const contractType = buy.contract_type || 'Unknown';
     activeContracts.set(contractId, {
-        type: 'DIGITOVER',
+        type: contractType,
         openTime: new Date(),
-        stake: buy.buy_price,
-        contractId: contractId
+        stake: buy.buy_price || 0
     });
-
+    
     subscribeToContract(contractId);
-    showNotification(`Trade opened: ${contractId}`, 'success');
+    showNotification(`${contractType} contract opened: ${contractId}`, 'success');
 }
 
 function handleContractUpdate(contract) {
@@ -413,23 +410,23 @@ function requestProposal(contractType, symbol, stake) {
     derivWs.send(JSON.stringify(request));
 }
 
-// Modify trade execution function
+// Modify placeTrades to execute trade immediately
 function placeTrades(stake, symbol) {
-    if (!derivWs?.readyState === WebSocket.OPEN) {
-        showNotification('Connecting...', 'info');
-        startWebSocket();
+    if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
+        showNotification('WebSocket not connected', 'error');
         return;
     }
 
     const activeAccount = clientStore.getActiveAccount();
-    if (!activeAccount?.token) {
-        showNotification('Please log in first', 'error');
+    if (!activeAccount) {
+        showNotification('No active account found', 'error');
         return;
     }
 
-    // Direct trade execution for DIGITOVER
-    const tradeRequest = {
+    const request = {
         buy: 1,
+        subscribe: 1,
+        price: stake,
         parameters: {
             amount: stake,
             basis: "stake",
@@ -442,8 +439,8 @@ function placeTrades(stake, symbol) {
         }
     };
 
-    console.log('Executing trade:', tradeRequest);
-    derivWs.send(JSON.stringify(tradeRequest));
+    derivWs.send(JSON.stringify(request));
+    showNotification('Placing DIGITOVER trade...', 'info');
 }
 
 // Modify handleProposalResponse to execute single trade
@@ -711,18 +708,68 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
     }
 });
 
+// Replace the DOMContentLoaded event listener auth section
+document.addEventListener('DOMContentLoaded', function() {
+    clientStore.initialize();
+    startWebSocket();
+    
+    // Add fullscreen button event listener
+    document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
+
+    // Add arbitrage bot button event listeners
+    document.getElementById('startButton').addEventListener('click', startArbitrageBot);
+    document.getElementById('stopButton').addEventListener('click', stopArbitrageBot);
+
+    // Update auth button click handler
+    document.getElementById('auth-button').addEventListener('click', function() {
+        const state = Math.random().toString(36).substring(7);
+        localStorage.setItem('oauth_state', state);
+        
+        const params = new URLSearchParams({
+            app_id: APP_ID,
+            l: 'EN',
+            brand: 'deriv',
+            redirect_uri: window.location.href,
+            state: state
+        });
+
+        window.location.href = `${OAUTH_URL}?${params.toString()}`;
+    });
+
+    // Check URL for token on page load
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token1');
+    const state = urlParams.get('state');
+    const savedState = localStorage.getItem('oauth_state');
+
+    if (token && (!state || state === savedState)) {
+        // Store token
+        localStorage.setItem('deriv_token', token);
+        
+        // Clear state and URL params
+        localStorage.removeItem('oauth_state');
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Initialize connection
+        startWebSocket();
+    } else if (localStorage.getItem('deriv_token')) {
+        // If we have a stored token, try to connect
+        startWebSocket();
+    } else {
+        // No token, show auth screen
+        updateAuthState(false);
+    }
+});
+
 // Update storage event listener
 window.addEventListener('storage', (e) => {
-    if (e.key === 'active_loginid' || e.key === 'accountsList') {
-        const activeAccount = clientStore.getActiveAccount();
-        if (activeAccount) {
-            clientStore.initialize();
-            startWebSocket(); // Reconnect with new credentials
-            showNotification('Switched to account: ' + activeAccount.loginid, 'info');
+    if (e.key === 'deriv_token') {
+        if (e.newValue) {
+            startWebSocket();
         } else {
             isRunning = false;
-            clientStore.setIsLoggedIn(false);
-            showNotification('Session expired or logged out', 'error');
+            updateAuthState(false);
+            showNotification('Logged out', 'info');
         }
     }
 });
@@ -795,16 +842,3 @@ function handleTradeExecution(signal) {
 
     derivWs.send(JSON.stringify(request));
 }
-
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    clientStore.initialize();
-    startWebSocket();
-    
-    // Add fullscreen button event listener
-    document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
-
-    // Add arbitrage bot button event listeners
-    document.getElementById('startButton').addEventListener('click', startArbitrageBot);
-    document.getElementById('stopButton').addEventListener('click', stopArbitrageBot);
-});
