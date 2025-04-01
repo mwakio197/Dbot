@@ -68,21 +68,20 @@ function validateToken() {
     return true;
 }
 
-// Replace initTradeWebSocket and use single WebSocket initialization
+// Replace startWebSocket with simpler version
 function startWebSocket() {
-    if (derivWs) {
-        derivWs.close();
-        tickHistory = [];
+    // Get existing WebSocket if available
+    derivWs = localStorage.getItem('deriv_ws');
+    
+    if (!derivWs) {
+        derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
+        localStorage.setItem('deriv_ws', derivWs);
     }
 
-    derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
-    
     derivWs.onopen = function() {
         console.log('WebSocket connected');
-        // Authorize first
         if (tradingToken) {
-            const authData = { authorize: tradingToken };
-            derivWs.send(JSON.stringify(authData));
+            derivWs.send(JSON.stringify({ authorize: tradingToken }));
         }
         requestTickHistory();
     };
@@ -218,17 +217,19 @@ function handleTickData(data) {
     if (data.history && Array.isArray(data.history.prices)) {
         tickHistory = data.history.prices.map((price, index) => ({
             time: data.history.times?.[index] || Date.now(),
-            quote: parseFloat(price) || 0
-        }));
-        detectDecimalPlaces();
+            quote: parseFloat(price)
+        })).filter(tick => !isNaN(tick.quote)); // Filter out invalid prices
     } else if (data.tick?.quote) {
-        let tickQuote = parseFloat(data.tick.quote) || 0;
-        tickHistory.push({ 
-            time: data.tick.epoch || Date.now(), 
-            quote: tickQuote 
-        });
-        if (tickHistory.length > 100) tickHistory.shift();
+        const quote = parseFloat(data.tick.quote);
+        if (!isNaN(quote)) {
+            tickHistory.push({ 
+                time: data.tick.epoch || Date.now(), 
+                quote: quote
+            });
+            if (tickHistory.length > 100) tickHistory.shift();
+        }
     }
+    detectDecimalPlaces();
     updateUI();
 }
 
@@ -266,21 +267,28 @@ function requestProposal(contractType, symbol, stake) {
     derivWs.send(JSON.stringify(request));
 }
 
-// Modify the placeTrades function
+// Simplify placeTrades function
 function placeTrades(stake, symbol) {
-    if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
+    if (!derivWs) {
         showNotification('WebSocket not connected', 'error');
         return;
     }
 
-    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
+    // Place single trade based on current price
+    const request = {
+        buy: 1,
+        parameters: {
+            amount: stake,
+            basis: "stake",
+            contract_type: "DIGITOVER",
+            currency: "USD",
+            duration: 1,
+            duration_unit: "t",
+            symbol: symbol
+        }
+    };
     
-    // Only request the appropriate trade based on current digit
-    if (currentDigit < 5) {
-        requestProposal("DIGITOVER", symbol, stake);
-    } else if (currentDigit > 4) {
-        requestProposal("DIGITUNDER", symbol, stake);
-    }
+    derivWs.send(JSON.stringify(request));
 }
 
 // Modify handleProposalResponse function
@@ -374,11 +382,9 @@ function detectDecimalPlaces() {
 }
 
 function getLastDigit(price) {
-    let priceStr = price.toString();
-    let priceParts = priceStr.split(".");
-    let decimals = priceParts[1] || "";
-    while (decimals.length < decimalPlaces) decimals += "0";
-    return Number(decimals.slice(-1));
+    if (!price) return 0;
+    const multiplier = Math.pow(10, decimalPlaces);
+    return Math.floor(Math.abs(price * multiplier) % 10);
 }
 
 function updateUI() {
@@ -388,41 +394,44 @@ function updateUI() {
 }
 
 function updateDigitDisplay() {
+    if (!tickHistory.length) return;
+
     const digitCounts = new Array(10).fill(0);
+    let validTicks = 0;
+
     tickHistory.forEach(tick => {
         const lastDigit = getLastDigit(tick.quote);
-        digitCounts[lastDigit]++;
+        if (lastDigit >= 0 && lastDigit <= 9) {
+            digitCounts[lastDigit]++;
+            validTicks++;
+        }
     });
 
-    const digitPercentages = digitCounts.map(count => (count / tickHistory.length) * 100);
-    const maxPercentage = Math.max(...digitPercentages);
-    const minPercentage = Math.min(...digitPercentages);
-    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
-
     const container = document.getElementById("digit-display-container");
+    if (!container) return;
+    
     container.innerHTML = "";
 
-    digitPercentages.forEach((percentage, digit) => {
+    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
+    
+    digitCounts.forEach((count, digit) => {
+        const percentage = validTicks > 0 ? (count / validTicks * 100) : 0;
+        
         const digitContainer = document.createElement("div");
         digitContainer.classList.add("digit-container");
-
-        if (digit === currentDigit) {
-            digitContainer.classList.add("current");
-            const arrow = document.createElement("div");
-            arrow.classList.add("arrow");
-            digitContainer.appendChild(arrow);
-        }
-
+        
         const digitBox = document.createElement("div");
         digitBox.classList.add("digit-box");
-        if (percentage === maxPercentage) digitBox.classList.add("highest");
-        if (percentage === minPercentage) digitBox.classList.add("lowest");
         digitBox.textContent = digit;
-
+        
+        if (digit === currentDigit) {
+            digitBox.classList.add("current");
+        }
+        
         const percentageText = document.createElement("div");
         percentageText.classList.add("digit-percentage");
-        percentageText.textContent = `${percentage.toFixed(2)}%`;
-
+        percentageText.textContent = `${percentage.toFixed(1)}%`;
+        
         digitContainer.appendChild(digitBox);
         digitContainer.appendChild(percentageText);
         container.appendChild(digitContainer);
