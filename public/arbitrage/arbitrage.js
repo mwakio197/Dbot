@@ -27,8 +27,15 @@ let clientStore = {
     currency: 'USD',
     balance: '0',
     getToken() {
-        const accountList = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
-        return accountList[this.loginid] ?? '';
+        try {
+            const accounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
+            const token = accounts[this.loginid]?.token;
+            console.log('Getting token for:', this.loginid, !!token);
+            return token || '';
+        } catch (error) {
+            console.error('Error getting token:', error);
+            return '';
+        }
     },
     setLoginId(loginid) {
         this.loginid = loginid;
@@ -55,9 +62,38 @@ let clientStore = {
         return true;
     },
     getActiveAccount() {
-        const active_loginid = localStorage.getItem('active_loginid');
-        const accounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
-        return accounts[active_loginid] || null;
+        try {
+            const active_loginid = localStorage.getItem('active_loginid');
+            const accounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
+            const account = accounts[active_loginid];
+            
+            if (!account) return null;
+
+            // Update store state with active account info
+            this.loginid = active_loginid;
+            this.currency = account.currency;
+            this.is_logged_in = true;
+            this.balance = account.balance || '0';
+            
+            console.log('Active account:', {
+                loginid: this.loginid,
+                currency: this.currency,
+                is_logged_in: this.is_logged_in
+            });
+            
+            return account;
+        } catch (error) {
+            console.error('Error getting active account:', error);
+            return null;
+        }
+    },
+    initialize() {
+        const account = this.getActiveAccount();
+        if (!account) {
+            console.error('No active account found during initialization');
+            return false;
+        }
+        return true;
     }
 };
 
@@ -122,7 +158,7 @@ function validateToken() {
     return clientStore.validateToken();
 }
 
-// Update WebSocket initialization
+// Replace startWebSocket function
 function startWebSocket() {
     if (derivWs) {
         derivWs.close();
@@ -135,16 +171,17 @@ function startWebSocket() {
         return;
     }
 
+    const token = activeAccount.token;
+    if (!token) {
+        showNotification('No valid token found', 'error');
+        return;
+    }
+
     derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
     
     derivWs.onopen = function() {
-        console.log('WebSocket connected');
-        const token = activeAccount.token;
-        if (token) {
-            const authData = { authorize: token };
-            derivWs.send(JSON.stringify(authData));
-        }
-        requestTickHistory();
+        console.log('WebSocket connected, authorizing...');
+        derivWs.send(JSON.stringify({ authorize: token }));
     };
 
     derivWs.onmessage = function(event) {
@@ -210,6 +247,18 @@ function startWebSocket() {
     derivWs.onerror = function(error) {
         console.error('WebSocket error:', error);
     };
+
+    // Update storage event listener for account changes
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'active_loginid') {
+            console.log('Account changed, reconnecting...');
+            const newAccount = clientStore.getActiveAccount();
+            if (newAccount) {
+                startWebSocket();
+                showNotification(`Switched to account: ${newAccount.loginid}`, 'info');
+            }
+        }
+    });
 }
 
 // Helper functions to handle different message types
@@ -611,6 +660,12 @@ document.getElementById('symbol').addEventListener('change', function(e) {
 document.getElementById('tradingForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
+    const activeAccount = clientStore.getActiveAccount();
+    if (!activeAccount) {
+        showNotification('Please select an account first', 'error');
+        return;
+    }
+
     if (!validateToken()) return;
 
     const stake = parseFloat(document.getElementById('stake').value);
@@ -635,23 +690,18 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
     }
 });
 
-// Handle storage events for client-store sync
+// Update storage event listener
 window.addEventListener('storage', (e) => {
-    if (e.key === 'active_loginid') {
-        const loginid = e.newValue;
-        if (loginid) {
-            clientStore.setLoginId(loginid);
+    if (e.key === 'active_loginid' || e.key === 'accountsList') {
+        const activeAccount = clientStore.getActiveAccount();
+        if (activeAccount) {
+            clientStore.initialize();
             startWebSocket(); // Reconnect with new credentials
+            showNotification('Switched to account: ' + activeAccount.loginid, 'info');
         } else {
+            isRunning = false;
             clientStore.setIsLoggedIn(false);
-            showNotification('Logged out', 'info');
-        }
-    }
-    
-    if (e.key === 'accountsList') {
-        if (!e.newValue) {
-            clientStore.setIsLoggedIn(false);
-            showNotification('Session expired', 'error');
+            showNotification('Session expired or logged out', 'error');
         }
     }
 });
@@ -727,6 +777,7 @@ function handleTradeExecution(signal) {
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
+    clientStore.initialize();
     startWebSocket();
     
     // Add fullscreen button event listener
