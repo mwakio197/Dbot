@@ -19,7 +19,7 @@ let pendingProposals = {
     DIGITUNDER: null
 };
 
-// Replace simple token handling with robust client-store based auth
+// Update client store with active account handling
 let clientStore = {
     loginid: '',
     is_logged_in: false,
@@ -53,6 +53,11 @@ let clientStore = {
             return false;
         }
         return true;
+    },
+    getActiveAccount() {
+        const active_loginid = localStorage.getItem('active_loginid');
+        const accounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
+        return accounts[active_loginid] || null;
     }
 };
 
@@ -117,18 +122,24 @@ function validateToken() {
     return clientStore.validateToken();
 }
 
-// Replace initTradeWebSocket and use single WebSocket initialization
+// Update WebSocket initialization
 function startWebSocket() {
     if (derivWs) {
         derivWs.close();
         tickHistory = [];
     }
 
+    const activeAccount = clientStore.getActiveAccount();
+    if (!activeAccount) {
+        showNotification('No active account found', 'error');
+        return;
+    }
+
     derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
     
     derivWs.onopen = function() {
         console.log('WebSocket connected');
-        const token = clientStore.getToken();
+        const token = activeAccount.token;
         if (token) {
             const authData = { authorize: token };
             derivWs.send(JSON.stringify(authData));
@@ -136,7 +147,6 @@ function startWebSocket() {
         requestTickHistory();
     };
 
-    // Modify onmessage to handle balance updates
     derivWs.onmessage = function(event) {
         const data = JSON.parse(event.data);
         
@@ -333,15 +343,36 @@ function requestProposal(contractType, symbol, stake) {
     derivWs.send(JSON.stringify(request));
 }
 
-// Modify placeTrades function to only handle DIGITOVER
+// Modify placeTrades to execute trade immediately
 function placeTrades(stake, symbol) {
     if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
         showNotification('WebSocket not connected', 'error');
         return;
     }
 
-    // Always request DIGITOVER trade
-    requestProposal("DIGITOVER", symbol, stake);
+    const activeAccount = clientStore.getActiveAccount();
+    if (!activeAccount) {
+        showNotification('No active account found', 'error');
+        return;
+    }
+
+    const request = {
+        buy: 1,
+        subscribe: 1,
+        price: stake,
+        parameters: {
+            amount: stake,
+            basis: "stake",
+            contract_type: "DIGITOVER",
+            currency: activeAccount.currency,
+            duration: 1,
+            duration_unit: "t",
+            symbol: symbol,
+            barrier: "5"
+        }
+    };
+
+    derivWs.send(JSON.stringify(request));
     showNotification('Placing DIGITOVER trade...', 'info');
 }
 
@@ -589,12 +620,17 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
         cleanupTrades();
         stakeAmount = stake;
         currentSymbol = symbol;
+        
+        // Execute trade immediately
         placeTrades(stake, symbol);
         
-        // Disable submit button permanently until page refresh
+        // Disable submit button temporarily
         const submitButton = document.querySelector('#tradingForm button[type="submit"]');
         if (submitButton) {
             submitButton.disabled = true;
+            setTimeout(() => {
+                submitButton.disabled = false;
+            }, 2000);
         }
     }
 });
