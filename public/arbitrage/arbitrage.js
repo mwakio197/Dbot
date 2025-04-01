@@ -1,6 +1,6 @@
 let derivWs;
-let tradeWs; // New WebSocket for trading
-let tradingToken = localStorage.getItem('authToken'); // Use standard authToken
+let tradeWs;
+let tradingToken = localStorage.getItem('authToken');
 let activeLoginId = localStorage.getItem('active_loginid');
 let tickHistory = [];
 let currentSymbol = "R_100";
@@ -10,6 +10,7 @@ let tradeType = ''; // 'OVER_5' or 'UNDER_4'
 let stakeAmount = 0;
 let consecutiveLosses = 0;
 const maxConsecutiveLosses = 3;
+let activeContracts = new Map(); // Track active contracts
 
 let initSurvicateCalled = false;
 let tradeResults = [];
@@ -115,13 +116,40 @@ function initTradeWebSocket() {
             return;
         }
 
+        // Handle buy response
         if (response.buy) {
+            const contractId = response.buy.contract_id;
             const contractType = response.buy.contract_type;
-            const profit = response.buy.profit;
-            showNotification(`${contractType} contract purchased! Potential profit: ${profit}`, 'success');
+            activeContracts.set(contractId, {
+                type: contractType,
+                openTime: new Date(),
+                stake: response.buy.buy_price
+            });
             
-            // Refresh trade history after new trade
-            setTimeout(requestTradeHistory, 2000);
+            // Subscribe to contract updates
+            subscribeToContract(contractId);
+            
+            showNotification(`${contractType} contract opened: ${contractId}`, 'success');
+        }
+
+        // Handle contract updates
+        if (response.proposal_open_contract) {
+            const contract = response.proposal_open_contract;
+            if (contract.is_sold) {
+                const profit = contract.profit;
+                const contractId = contract.contract_id;
+                const contractData = activeContracts.get(contractId);
+                
+                if (contractData) {
+                    updateTradeResults(contract.exit_tick_display_value.slice(-1), profit >= 0, {
+                        contractId,
+                        profit,
+                        type: contractData.type,
+                        duration: (new Date() - contractData.openTime) / 1000
+                    });
+                    activeContracts.delete(contractId);
+                }
+            }
         }
     };
 
@@ -155,8 +183,12 @@ function placeTrades(stake, symbol) {
         if (!initTradeWebSocket()) return;
     }
 
+    // Place both OVER and UNDER trades simultaneously
     const batchRequest = {
-        passthrough: { batch: true },
+        passthrough: { 
+            batch: true,
+            login_id: activeLoginId 
+        },
         requests: [
             {
                 buy: 1,
@@ -167,7 +199,8 @@ function placeTrades(stake, symbol) {
                     duration: 1,
                     duration_unit: "t",
                     barrier: "5",
-                    basis: "stake"
+                    basis: "stake",
+                    currency: "USD"
                 }
             },
             {
@@ -178,14 +211,25 @@ function placeTrades(stake, symbol) {
                     symbol: symbol,
                     duration: 1,
                     duration_unit: "t",
-                    barrier: "4",
-                    basis: "stake"
+                    barrier: "4", // Using same barrier 5 for both contracts
+                    basis: "stake",
+                    currency: "USD"
                 }
             }
         ]
     };
 
     tradeWs.send(JSON.stringify(batchRequest));
+}
+
+// Add contract subscription function
+function subscribeToContract(contractId) {
+    const request = {
+        proposal_open_contract: 1,
+        subscribe: 1,
+        contract_id: contractId
+    };
+    tradeWs.send(JSON.stringify(request));
 }
 
 // Initialize WebSocket connection
@@ -325,16 +369,19 @@ function updateDigitDisplay() {
 }
 
 // Add this function to update trade results
-function updateTradeResults(digit, isWin) {
+function updateTradeResults(digit, isWin, contractDetails) {
     const result = {
         time: new Date().toLocaleTimeString(),
         digit: digit,
         isWin: isWin,
-        type: tradeType
+        type: contractDetails.type,
+        contractId: contractDetails.contractId,
+        profit: contractDetails.profit,
+        duration: contractDetails.duration
     };
     
-    tradeResults.unshift(result); // Add to beginning of array
-    if (tradeResults.length > 10) tradeResults.pop(); // Keep only last 10 results
+    tradeResults.unshift(result);
+    if (tradeResults.length > 10) tradeResults.pop();
     
     if (isWin) totalWins++;
     else totalLosses++;
@@ -342,6 +389,7 @@ function updateTradeResults(digit, isWin) {
     updateResultsDisplay();
 }
 
+// Modify updateResultsDisplay to show more contract details
 function updateResultsDisplay() {
     const resultsContainer = document.getElementById('trade-results');
     const statsContainer = document.getElementById('trade-stats');
@@ -359,14 +407,16 @@ function updateResultsDisplay() {
         <div>Total Profit: ${totalProfit}</div>
     `;
     
-    // Update results list
+    // Update results list with more details
     resultsContainer.innerHTML = tradeResults.map(result => `
         <div class="trade-result ${result.isWin ? 'win' : 'loss'}">
             <span>${result.time}</span>
+            <span>ID: ${result.contractId}</span>
             <span>Digit: ${result.digit}</span>
             <span>${result.type}</span>
             <span>${result.isWin ? 'WIN' : 'LOSS'}</span>
             <span>$${parseFloat(result.profit).toFixed(2)}</span>
+            <span>${result.duration.toFixed(1)}s</span>
         </div>
     `).join('');
 }
@@ -378,7 +428,7 @@ function executeTrade(digit) {
     const isWin = (tradeType === 'OVER_5' && digit > 5) || 
                   (tradeType === 'UNDER_4' && digit < 4);
 
-    updateTradeResults(digit, isWin);
+    updateTradeResults(digit, isWin, {});
 
     if (isWin) {
         consecutiveLosses = 0;
@@ -472,6 +522,19 @@ function toggleFullscreen() {
         }
     }
 }
+
+// Add cleanup function for page unload
+window.addEventListener('beforeunload', () => {
+    // Close all active contract subscriptions
+    activeContracts.forEach((_, contractId) => {
+        const request = {
+            forget_all: ["proposal_open_contract"],
+            contract_id: contractId
+        };
+        tradeWs.send(JSON.stringify(request));
+    });
+    activeContracts.clear();
+});
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
