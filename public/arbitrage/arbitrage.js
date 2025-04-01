@@ -1,5 +1,4 @@
 let derivWs;
-let tradeWs;
 let tradingToken = localStorage.getItem('authToken');
 let activeLoginId = localStorage.getItem('active_loginid');
 let tickHistory = [];
@@ -62,105 +61,139 @@ function validateToken() {
     return true;
 }
 
-// Add trading WebSocket initialization
-function initTradeWebSocket() {
-    if (!validateToken()) {
-        return false;
+// Replace initTradeWebSocket and use single WebSocket initialization
+function startWebSocket() {
+    if (derivWs) {
+        derivWs.close();
+        tickHistory = [];
     }
 
-    initSurvicate(); // Initialize Survicate when trading starts
-
-    if (tradeWs) {
-        tradeWs.close();
-    }
-
-    tradeWs = new WebSocket("wss://ws.derivws.com/websockets/v3");
-
-    tradeWs.onopen = function() {
-        const authData = { authorize: tradingToken };
-        tradeWs.send(JSON.stringify(authData));
+    derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
+    
+    derivWs.onopen = function() {
+        console.log('WebSocket connected');
+        // Authorize first
+        if (tradingToken) {
+            const authData = { authorize: tradingToken };
+            derivWs.send(JSON.stringify(authData));
+        }
+        requestTickHistory();
     };
-
-    tradeWs.onmessage = function(event) {
-        const response = JSON.parse(event.data);
-
-        if (response.error) {
-            showNotification(response.error.message, 'error');
+    
+    derivWs.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.error) {
+            showNotification(data.error.message, 'error');
             return;
         }
 
-        if (response.authorize) {
+        // Handle authorization response
+        if (data.authorize) {
             requestTradeHistory();
             return;
         }
 
-        if (response.profit_table) {
-            const trades = response.profit_table.transactions;
-            tradeResults = trades.map(trade => ({
-                time: new Date(trade.purchase_time * 1000).toLocaleTimeString(),
-                digit: trade.entry_tick_display_value.slice(-1),
-                isWin: trade.profit >= 0,
-                type: trade.shortcode.includes('DIGIT OVER') ? 'OVER_5' : 'UNDER_4',
-                profit: trade.profit
-            }));
-            
-            // Update totals
-            totalWins = tradeResults.filter(t => t.isWin).length;
-            totalLosses = tradeResults.filter(t => !t.isWin).length;
-            
-            updateResultsDisplay();
+        // Handle profit table response
+        if (data.profit_table) {
+            handleProfitTableResponse(data.profit_table);
             return;
         }
 
         // Handle buy response
-        if (response.buy) {
-            const contractId = response.buy.contract_id;
-            const contractType = response.buy.contract_type;
-            activeContracts.set(contractId, {
-                type: contractType,
-                openTime: new Date(),
-                stake: response.buy.buy_price
-            });
-            
-            // Subscribe to contract updates
-            subscribeToContract(contractId);
-            
-            showNotification(`${contractType} contract opened: ${contractId}`, 'success');
+        if (data.buy) {
+            handleBuyResponse(data.buy);
+            return;
         }
 
         // Handle contract updates
-        if (response.proposal_open_contract) {
-            const contract = response.proposal_open_contract;
-            if (contract.is_sold) {
-                const profit = contract.profit;
-                const contractId = contract.contract_id;
-                const contractData = activeContracts.get(contractId);
-                
-                if (contractData) {
-                    updateTradeResults(contract.exit_tick_display_value.slice(-1), profit >= 0, {
-                        contractId,
-                        profit,
-                        type: contractData.type,
-                        duration: (new Date() - contractData.openTime) / 1000
-                    });
-                    activeContracts.delete(contractId);
-                }
-            }
+        if (data.proposal_open_contract) {
+            handleContractUpdate(data.proposal_open_contract);
+            return;
+        }
+
+        // Handle tick data
+        if (data.history || data.tick) {
+            handleTickData(data);
         }
     };
 
-    tradeWs.onerror = function(error) {
-        showNotification('Trading connection error', 'error');
-        console.error('Trading WebSocket error:', error);
+    derivWs.onclose = function() {
+        console.log('WebSocket disconnected');
     };
+    
+    derivWs.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
 
-    return true;
+// Helper functions to handle different message types
+function handleProfitTableResponse(profit_table) {
+    const trades = profit_table.transactions;
+    tradeResults = trades.map(trade => ({
+        time: new Date(trade.purchase_time * 1000).toLocaleTimeString(),
+        digit: trade.entry_tick_display_value.slice(-1),
+        isWin: trade.profit >= 0,
+        type: trade.shortcode.includes('DIGIT OVER') ? 'OVER_5' : 'UNDER_4',
+        profit: trade.profit
+    }));
+    
+    totalWins = tradeResults.filter(t => t.isWin).length;
+    totalLosses = tradeResults.filter(t => !t.isWin).length;
+    
+    updateResultsDisplay();
+}
+
+function handleBuyResponse(buy) {
+    const contractId = buy.contract_id;
+    const contractType = buy.contract_type;
+    activeContracts.set(contractId, {
+        type: contractType,
+        openTime: new Date(),
+        stake: buy.buy_price
+    });
+    
+    subscribeToContract(contractId);
+    showNotification(`${contractType} contract opened: ${contractId}`, 'success');
+}
+
+function handleContractUpdate(contract) {
+    if (contract.is_sold) {
+        const profit = contract.profit;
+        const contractId = contract.contract_id;
+        const contractData = activeContracts.get(contractId);
+        
+        if (contractData) {
+            updateTradeResults(contract.exit_tick_display_value.slice(-1), profit >= 0, {
+                contractId,
+                profit,
+                type: contractData.type,
+                duration: (new Date() - contractData.openTime) / 1000
+            });
+            activeContracts.delete(contractId);
+        }
+    }
+}
+
+function handleTickData(data) {
+    if (data.history) {
+        tickHistory = data.history.prices.map((price, index) => ({
+            time: data.history.times[index],
+            quote: parseFloat(price)
+        }));
+        detectDecimalPlaces();
+    } else if (data.tick) {
+        let tickQuote = parseFloat(data.tick.quote);
+        tickHistory.push({ time: data.tick.epoch, quote: tickQuote });
+        if (tickHistory.length > 100) tickHistory.shift();
+    }
+    updateUI();
 }
 
 // Add after WebSocket initialization
 function requestTradeHistory() {
-    if (!tradeWs || tradeWs.readyState !== WebSocket.OPEN) {
-        if (!initTradeWebSocket()) return;
+    if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
+        return;
     }
 
     const request = {
@@ -170,16 +203,16 @@ function requestTradeHistory() {
         "limit": 10
     };
 
-    tradeWs.send(JSON.stringify(request));
+    derivWs.send(JSON.stringify(request));
 }
 
 // Function to place trades
 function placeTrades(stake, symbol) {
-    if (!tradeWs || tradeWs.readyState !== WebSocket.OPEN) {
-        if (!initTradeWebSocket()) return;
+    if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
+        showNotification('WebSocket not connected', 'error');
+        return;
     }
 
-    // Place both OVER and UNDER trades simultaneously
     const batchRequest = {
         passthrough: { 
             batch: true,
@@ -207,7 +240,7 @@ function placeTrades(stake, symbol) {
                     symbol: symbol,
                     duration: 1,
                     duration_unit: "t",
-                    barrier: "4", // Using same barrier 5 for both contracts
+                    barrier: "4",
                     basis: "stake",
                     currency: "USD"
                 }
@@ -215,7 +248,7 @@ function placeTrades(stake, symbol) {
         ]
     };
 
-    tradeWs.send(JSON.stringify(batchRequest));
+    derivWs.send(JSON.stringify(batchRequest));
 }
 
 // Add contract subscription function
@@ -225,7 +258,7 @@ function subscribeToContract(contractId) {
         subscribe: 1,
         contract_id: contractId
     };
-    tradeWs.send(JSON.stringify(request));
+    derivWs.send(JSON.stringify(request));
 }
 
 // Initialize WebSocket connection
@@ -240,51 +273,6 @@ function requestTickHistory() {
         };
         derivWs.send(JSON.stringify(request));
     }
-}
-
-function startWebSocket() {
-    if (derivWs) {
-        derivWs.close();
-        tickHistory = [];
-    }
-
-    derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
-    
-    derivWs.onopen = function() {
-        console.log('WebSocket connected');
-        requestTickHistory();
-    };
-    
-    derivWs.onclose = function() {
-        console.log('WebSocket disconnected');
-    };
-    
-    derivWs.onerror = function(error) {
-        console.error('WebSocket error:', error);
-    };
-    
-    derivWs.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        
-        if (data.error) {
-            console.error('WebSocket error:', data.error);
-            return;
-        }
-        
-        if (data.history) {
-            tickHistory = data.history.prices.map((price, index) => ({
-                time: data.history.times[index],
-                quote: parseFloat(price)
-            }));
-            detectDecimalPlaces();
-            updateUI();
-        } else if (data.tick) {
-            let tickQuote = parseFloat(data.tick.quote);
-            tickHistory.push({ time: data.tick.epoch, quote: tickQuote });
-            if (tickHistory.length > 100) tickHistory.shift();
-            updateUI();
-        }
-    };
 }
 
 // Helper functions for tick analysis
@@ -499,7 +487,7 @@ window.addEventListener('beforeunload', () => {
             forget_all: ["proposal_open_contract"],
             contract_id: contractId
         };
-        tradeWs.send(JSON.stringify(request));
+        derivWs.send(JSON.stringify(request));
     });
     activeContracts.clear();
 });
