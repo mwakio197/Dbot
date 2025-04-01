@@ -175,7 +175,7 @@ function updateAuthState(authenticated) {
 }
 
 // Update these constants at the top of the file
-const APP_ID = '1089'; // Official Deriv app ID
+const APP_ID = '68848'; // Official Deriv app ID
 const OAUTH_URL = 'https://oauth.deriv.com/oauth2/authorize';
 const WS_URL = 'wss://ws.binaryws.com/websockets/v3';
 
