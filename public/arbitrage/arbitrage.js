@@ -186,8 +186,20 @@ function startWebSocket() {
         tickHistory = [];
     }
 
-    const token = localStorage.getItem('deriv_token');
-    if (!token) {
+    // Get token from URL or localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token1');
+    const storedToken = localStorage.getItem('deriv_token');
+    
+    // If we have a new token from URL, store it
+    if (token) {
+        localStorage.setItem('deriv_token', token);
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    const activeToken = token || storedToken;
+    if (!activeToken) {
         showNotification('No valid token found', 'error');
         updateAuthState(false);
         return;
@@ -197,7 +209,7 @@ function startWebSocket() {
     
     derivWs.onopen = function() {
         console.log('WebSocket connected, authorizing...');
-        derivWs.send(JSON.stringify({ authorize: token }));
+        derivWs.send(JSON.stringify({ authorize: activeToken }));
     };
 
     derivWs.onmessage = function(event) {
@@ -708,68 +720,49 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
     }
 });
 
-// Replace the DOMContentLoaded event listener auth section
+// Replace the DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', function() {
-    clientStore.initialize();
-    startWebSocket();
-    
-    // Add fullscreen button event listener
-    document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
-
-    // Add arbitrage bot button event listeners
-    document.getElementById('startButton').addEventListener('click', startArbitrageBot);
-    document.getElementById('stopButton').addEventListener('click', stopArbitrageBot);
-
-    // Update auth button click handler
-    document.getElementById('auth-button').addEventListener('click', function() {
-        const state = Math.random().toString(36).substring(7);
-        localStorage.setItem('oauth_state', state);
-        
-        const params = new URLSearchParams({
-            app_id: APP_ID,
-            l: 'EN',
-            brand: 'deriv',
-            redirect_uri: window.location.href,
-            state: state
-        });
-
-        window.location.href = `${OAUTH_URL}?${params.toString()}`;
-    });
-
-    // Check URL for token on page load
+    // Check URL for token first
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token1');
-    const state = urlParams.get('state');
-    const savedState = localStorage.getItem('oauth_state');
-
-    if (token && (!state || state === savedState)) {
-        // Store token
+    
+    if (token) {
+        // We have a fresh token from authentication
         localStorage.setItem('deriv_token', token);
-        
-        // Clear state and URL params
-        localStorage.removeItem('oauth_state');
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Initialize connection
-        startWebSocket();
-    } else if (localStorage.getItem('deriv_token')) {
-        // If we have a stored token, try to connect
         startWebSocket();
     } else {
-        // No token, show auth screen
-        updateAuthState(false);
-    }
-});
-
-// Update storage event listener
-window.addEventListener('storage', (e) => {
-    if (e.key === 'deriv_token') {
-        if (e.newValue) {
+        // Check for stored token
+        const storedToken = localStorage.getItem('deriv_token');
+        if (storedToken) {
             startWebSocket();
         } else {
-            isRunning = false;
             updateAuthState(false);
-            showNotification('Logged out', 'info');
+        }
+    }
+
+    // Add event listeners
+    document.getElementById('fullscreen-btn')?.addEventListener('click', toggleFullscreen);
+    document.getElementById('startButton')?.addEventListener('click', startArbitrageBot);
+    document.getElementById('stopButton')?.addEventListener('click', stopArbitrageBot);
+});
+
+// Update logout handling
+function logout() {
+    localStorage.removeItem('deriv_token');
+    if (derivWs) {
+        derivWs.close();
+    }
+    updateAuthState(false);
+    showNotification('Logged out successfully', 'info');
+}
+
+// Add logout handler to storage events
+window.addEventListener('storage', (e) => {
+    if (e.key === 'deriv_token') {
+        if (!e.newValue) {
+            logout();
+        } else if (e.newValue !== e.oldValue) {
+            startWebSocket(); // Reconnect with new token
         }
     }
 });
