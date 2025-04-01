@@ -152,12 +152,15 @@ function handleProfitTableResponse(profit_table) {
         // Add null checks for each property
         if (!trade) return null;
 
+        const profit = typeof trade.profit === 'number' ? trade.profit : 0;
+        
         return {
             time: trade.purchase_time ? new Date(trade.purchase_time * 1000).toLocaleTimeString() : 'Unknown',
             digit: trade.entry_tick_display_value ? trade.entry_tick_display_value.slice(-1) : '?',
-            isWin: typeof trade.profit === 'number' ? trade.profit >= 0 : false,
+            isWin: profit >= 0,
             type: trade.shortcode ? (trade.shortcode.includes('DIGIT OVER') ? 'OVER_5' : 'UNDER_4') : 'Unknown',
-            profit: trade.profit || 0
+            profit: profit,
+            contractId: trade.contract_id || 'Unknown'
         };
     }).filter(Boolean); // Remove any null entries
     
@@ -460,31 +463,39 @@ function updateResultsDisplay() {
     const resultsContainer = document.getElementById('trade-results');
     const statsContainer = document.getElementById('trade-stats');
     
-    // Update stats
+    // Update stats with safe number handling
     const totalTrades = totalWins + totalLosses;
-    const winRate = totalTrades > 0 ? ((totalWins / totalTrades) * 100).toFixed(2) : 0;
-    const totalProfit = tradeResults.reduce((sum, trade) => sum + parseFloat(trade.profit || 0), 0).toFixed(2);
+    const winRate = totalTrades > 0 ? ((totalWins / totalTrades) * 100).toFixed(2) : '0.00';
+    const totalProfit = tradeResults.reduce((sum, trade) => {
+        const profit = typeof trade?.profit === 'number' ? trade.profit : 0;
+        return sum + profit;
+    }, 0).toFixed(2);
     
     statsContainer.innerHTML = `
         <div>Total Trades: ${totalTrades}</div>
         <div>Wins: ${totalWins}</div>
         <div>Losses: ${totalLosses}</div>
         <div>Win Rate: ${winRate}%</div>
-        <div>Total Profit: ${totalProfit}</div>
+        <div>Total Profit: $${totalProfit}</div>
     `;
     
-    // Update results list with more details
-    resultsContainer.innerHTML = tradeResults.map(result => `
-        <div class="trade-result ${result.isWin ? 'win' : 'loss'}">
-            <span>${result.time}</span>
-            <span>ID: ${result.contractId}</span>
-            <span>Digit: ${result.digit}</span>
-            <span>${result.type}</span>
-            <span>${result.isWin ? 'WIN' : 'LOSS'}</span>
-            <span>$${parseFloat(result.profit).toFixed(2)}</span>
-            <span>${result.duration.toFixed(1)}s</span>
-        </div>
-    `).join('');
+    // Update results list with safer property access
+    resultsContainer.innerHTML = tradeResults.map(result => {
+        const profit = typeof result?.profit === 'number' ? result.profit.toFixed(2) : '0.00';
+        const duration = typeof result?.duration === 'number' ? result.duration.toFixed(1) : '0.0';
+        
+        return `
+            <div class="trade-result ${result.isWin ? 'win' : 'loss'}">
+                <span>${result.time || 'Unknown'}</span>
+                <span>ID: ${result.contractId || 'Unknown'}</span>
+                <span>Digit: ${result.digit || '?'}</span>
+                <span>${result.type || 'Unknown'}</span>
+                <span>${result.isWin ? 'WIN' : 'LOSS'}</span>
+                <span>$${profit}</span>
+                <span>${duration}s</span>
+            </div>
+        `;
+    }).join('');
 }
 
 // Symbol change handler
