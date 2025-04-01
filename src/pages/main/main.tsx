@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import DesktopWrapper from '@/components/shared_ui/desktop-wrapper';
 import Dialog from '@/components/shared_ui/dialog';
@@ -94,12 +94,11 @@ const AppWrapper = observer(() => {
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [bots, setBots] = useState([]);
-    // Add new state for analysis tool URL
     const [analysisToolUrl, setAnalysisToolUrl] = useState('ai');
 
-    // Add function to check if analysis tool is active
     const isAnalysisToolActive = active_tab === ANALYSIS_TOOL;
 
     useEffect(() => {
@@ -114,14 +113,22 @@ const AppWrapper = observer(() => {
     }, [clear, connectionStatus, stopBot]);
 
     useEffect(() => {
-        // Fetch the XML files and parse them
+        const tab_param = searchParams.get('tab');
+        if (tab_param !== null) {
+            const tab_index = TAB_IDS.findIndex(id => id === tab_param);
+            if (tab_index >= 0) {
+                handleTabChange(tab_index);
+            }
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
         const fetchBots = async () => {
             const botFiles = [
                 'Upgraded Candlemine.xml',
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
                 'Top-notch 2.xml',
-                // Add more paths to your XML files
             ];
             const botPromises = botFiles.map(async (file) => {
                 try {
@@ -133,10 +140,10 @@ const AppWrapper = observer(() => {
                     const parser = new DOMParser();
                     const xml = parser.parseFromString(text, 'application/xml');
                     return {
-                        title: file.split('/').pop(), // Use the file name as the title
+                        title: file.split('/').pop(),
                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
                         filePath: file,
-                        xmlContent: text, // Store the XML content
+                        xmlContent: text,
                     };
                 } catch (error) {
                     console.error(error);
@@ -151,16 +158,16 @@ const AppWrapper = observer(() => {
     }, []);
 
     const runBot = (xmlContent: string) => {
-        // Load the strategy into the bot builder
         updateWorkspaceName(xmlContent);
         console.log('Running bot with content:', xmlContent);
     };
 
-    const handleTabChange = React.useCallback(
-        (tab_index: number) => {
-            setActiveTab(tab_index);
+    const handleTabChange = useCallback(
+        (index: number) => {
+            setActiveTab(index);
+            setSearchParams({ tab: TAB_IDS[index] });
         },
-        [setActiveTab]
+        [setActiveTab, setSearchParams]
     );
 
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string }) => {
@@ -188,10 +195,8 @@ const AppWrapper = observer(() => {
     const handleOpen = useCallback(async () => {
         await load_modal.loadFileFromRecent();
         setActiveTab(DBOT_TABS.BOT_BUILDER);
-        // rudderStackSendDashboardClickEvent({ dashboard_click_name: 'open', subpage_name: 'bot_builder' });
     }, [load_modal, setActiveTab]);
 
-    // Add toggle function
     const toggleAnalysisTool = (url: string) => {
         setAnalysisToolUrl(url);
     };

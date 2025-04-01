@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
+import { useSearchParams } from 'react-router-dom';
 import NoSearchResult from './common/no-search-result-found';
 import QuickStrategyGuides from './quick-strategy-content/quick-strategy-guides';
 import FAQContent from './faq-content';
@@ -20,6 +21,7 @@ export type TTutorialsTabItem = {
 };
 
 const TutorialsTab = observer(({ handleTabChange }: TTutorialsTab) => {
+    const [searchParams, setSearchParams] = useSearchParams();
     const { isDesktop } = useDevice();
     const { dashboard } = useStore();
     const [prev_active_tutorials, setPrevActiveTutorialsTab] = React.useState<number>(0);
@@ -82,10 +84,42 @@ const TutorialsTab = observer(({ handleTabChange }: TTutorialsTab) => {
         },
     ];
 
+    React.useEffect(() => {
+        // Initialize tutorial tab from URL parameter
+        const tutorial_tab = searchParams.get('tutorial');
+        if (tutorial_tab !== null) {
+            const tab_index = tutorial_tabs.findIndex(tab => tab.label.toLowerCase() === tutorial_tab.toLowerCase());
+            if (tab_index >= 0) {
+                dashboard.setActiveTabTutorial(tab_index);
+            }
+        }
+    }, []);
+
+    const handleTutorialTabChange = (index: number) => {
+        dashboard.setActiveTabTutorial(index);
+        // Update URL when tutorial tab changes
+        const tab_name = tutorial_tabs[index]?.label.toLowerCase();
+        if (tab_name) {
+            setSearchParams(prev => {
+                const newParams = new URLSearchParams(prev);
+                newParams.set('tutorial', tab_name);
+                return newParams;
+            });
+        }
+    };
+
     return isDesktop ? (
-        <TutorialsTabDesktop tutorial_tabs={tutorial_tabs} prev_active_tutorials={prev_active_tutorials} />
+        <TutorialsTabDesktop 
+            tutorial_tabs={tutorial_tabs} 
+            prev_active_tutorials={prev_active_tutorials}
+            onTabChange={handleTutorialTabChange}
+        />
     ) : (
-        <TutorialsTabMobile tutorial_tabs={tutorial_tabs} prev_active_tutorials={prev_active_tutorials} />
+        <TutorialsTabMobile 
+            tutorial_tabs={tutorial_tabs} 
+            prev_active_tutorials={prev_active_tutorials}
+            onTabChange={handleTutorialTabChange}
+        />
     );
 });
 
