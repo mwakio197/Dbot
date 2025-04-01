@@ -17,6 +17,7 @@ import AccountSwitcher from './account-switcher';
 import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
 import PlatformSwitcher from './platform-switcher';
+import { getAppId } from '@/components/shared';
 import './header.scss';
 import React, { useState } from 'react';
 import Modal from '@/components/shared_ui/modal'; // Import the modal component
@@ -203,25 +204,12 @@ const AppHeader = observer(() => {
                 <div className='auth-actions'>
                     <Button
                         tertiary
-                        onClick={async () => {
-                            if (!isOAuth2Enabled) {
-                                window.location.replace(generateOAuthURL());
-                            } else {
-                                const getQueryParams = new URLSearchParams(window.location.search);
-                                const currency = getQueryParams.get('account') ?? '';
-                                const query_param_currency =
-                                    sessionStorage.getItem('query_param_currency') || currency || 'USD';
-                                await requestOidcAuthentication({
-                                    redirectCallbackUri: `${window.location.origin}/callback`,
-                                    ...(query_param_currency
-                                        ? {
-                                              state: {
-                                                  account: query_param_currency,
-                                              },
-                                          }
-                                        : {}),
-                                });
-                            }
+                        onClick={() => {
+                            const app_id = getAppId();
+                            const oauth_url = 'https://oauth.deriv.com/oauth2/authorize';
+                            const redirect_uri = encodeURIComponent(`${window.location.origin}/callback`);
+                            const url = `${oauth_url}?app_id=${app_id}&l=EN&brand=deriv&redirect_uri=${redirect_uri}`;
+                            window.location.href = url;
                         }}
                     >
                         <Localize i18n_default_text='Log in' />
