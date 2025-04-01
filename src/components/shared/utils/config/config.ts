@@ -151,7 +151,7 @@ export const generateOAuthURL = () => {
         localStorage.getItem('config.server_url') ||
         original_url.hostname) as string;
 
-    const valid_server_urls = ['green.derivws.com', 'red.derivws.com', 'blue.derivws.com'];
+    const valid_server_urls = ['derivws.com', 'derivws.com', 'derivws.com'];
     if (
         typeof configured_server_url === 'string'
             ? !valid_server_urls.includes(configured_server_url)
