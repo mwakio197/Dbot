@@ -5,11 +5,7 @@ let activeLoginId = localStorage.getItem('active_loginid');
 let tickHistory = [];
 let currentSymbol = "R_100";
 let decimalPlaces = 2;
-let isTrading = false;
-let tradeType = ''; // 'OVER_5' or 'UNDER_4'
 let stakeAmount = 0;
-let consecutiveLosses = 0;
-const maxConsecutiveLosses = 3;
 let activeContracts = new Map(); // Track active contracts
 
 let initSurvicateCalled = false;
@@ -252,7 +248,7 @@ function startWebSocket() {
         tickHistory = [];
     }
 
-    derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+    derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
     
     derivWs.onopen = function() {
         console.log('WebSocket connected');
@@ -286,13 +282,6 @@ function startWebSocket() {
             let tickQuote = parseFloat(data.tick.quote);
             tickHistory.push({ time: data.tick.epoch, quote: tickQuote });
             if (tickHistory.length > 100) tickHistory.shift();
-            
-            // Execute trade logic on each new tick
-            if (isTrading) {
-                const currentDigit = getLastDigit(tickQuote);
-                executeTrade(currentDigit);
-            }
-            
             updateUI();
         }
     };
@@ -318,11 +307,7 @@ function getLastDigit(price) {
 
 function updateUI() {
     const currentPrice = tickHistory[tickHistory.length - 1]?.quote.toFixed(decimalPlaces);
-    const statusText = isTrading ? 
-        `Trading ${tradeType} | Losses: ${consecutiveLosses}/${maxConsecutiveLosses}` : 
-        'Not Trading';
-    document.getElementById("current-price").textContent = 
-        `${currentPrice || "N/A"} | ${statusText}`;
+    document.getElementById("current-price").textContent = currentPrice || "N/A";
     updateDigitDisplay();
 }
 
@@ -421,29 +406,6 @@ function updateResultsDisplay() {
     `).join('');
 }
 
-// Modify the executeTrade function
-function executeTrade(digit) {
-    if (!isTrading || !stakeAmount) return;
-
-    const isWin = (tradeType === 'OVER_5' && digit > 5) || 
-                  (tradeType === 'UNDER_4' && digit < 4);
-
-    updateTradeResults(digit, isWin, {});
-
-    if (isWin) {
-        consecutiveLosses = 0;
-        showNotification('Trade Won!', 'success');
-    } else {
-        consecutiveLosses++;
-        showNotification('Trade Lost!', 'error');
-        
-        if (consecutiveLosses >= maxConsecutiveLosses) {
-            isTrading = false;
-            showNotification('Max consecutive losses reached. Trading stopped.', 'error');
-        }
-    }
-}
-
 // Symbol change handler
 document.getElementById('symbol').addEventListener('change', function(e) {
     const newSymbol = e.target.value;
@@ -454,7 +416,7 @@ document.getElementById('symbol').addEventListener('change', function(e) {
     }
 });
 
-// Modify the existing form submission handler
+// Modify the form submission handler
 document.getElementById('tradingForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -468,14 +430,21 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
     if (stake && symbol) {
         stakeAmount = stake;
         currentSymbol = symbol;
-        isTrading = true;
-        consecutiveLosses = 0;
         
-        // Place the trades
+        // Just place the trades once
         placeTrades(stake, symbol);
         
-        // Start websocket for analysis
+        // Start websocket for analysis only
         startWebSocket();
+        
+        // Disable the form submit button to prevent multiple submissions
+        const submitButton = document.querySelector('#tradingForm button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = true;
+            setTimeout(() => {
+                submitButton.disabled = false;
+            }, 2000); // Re-enable after 2 seconds
+        }
     }
 });
 
@@ -483,8 +452,7 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
 window.addEventListener('storage', (e) => {
     if (e.key === 'authToken') {
         tradingToken = e.newValue;
-        if (!tradingToken && isTrading) {
-            isTrading = false;
+        if (!tradingToken) {
             showNotification('Trading stopped - token expired', 'error');
         }
     }
