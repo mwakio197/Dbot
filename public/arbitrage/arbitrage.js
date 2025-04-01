@@ -5,6 +5,8 @@ let decimalPlaces = 2;
 let stakeAmount = 0;
 let activeContracts = new Map(); // Track active contracts
 let activeProposals = new Map(); // Track active proposals
+let isRunning = false; // Track arbitrage bot state
+let activeTrades = new Map(); // Track active trades
 
 let initSurvicateCalled = false;
 let tradeResults = [];
@@ -39,6 +41,38 @@ let clientStore = {
     },
     setCurrency(currency) {
         this.currency = currency;
+    },
+    validateToken() {
+        if (!this.is_logged_in) {
+            showNotification('Please log in to trade', 'error');
+            return false;
+        }
+        const token = this.getToken();
+        if (!token) {
+            showNotification('No trading token found. Please log in.', 'error');
+            return false;
+        }
+        return true;
+    }
+};
+
+// Add after client store declaration
+const tradeStore = {
+    getHistory() {
+        return JSON.parse(localStorage.getItem('tradeHistory') || '[]');
+    },
+    saveHistory(trades) {
+        localStorage.setItem('tradeHistory', JSON.stringify(trades));
+    },
+    addTrade(trade) {
+        const history = this.getHistory();
+        history.unshift(trade);
+        if (history.length > 100) history.pop(); // Keep last 100 trades
+        this.saveHistory(history);
+        return history;
+    },
+    clearHistory() {
+        localStorage.setItem('tradeHistory', '[]');
     }
 };
 
@@ -80,16 +114,7 @@ function showNotification(message, type = 'info') {
 
 // Replace validateToken function
 function validateToken() {
-    if (!clientStore.is_logged_in) {
-        showNotification('Please log in to trade', 'error');
-        return false;
-    }
-    const token = clientStore.getToken();
-    if (!token) {
-        showNotification('No trading token found. Please log in.', 'error');
-        return false;
-    }
-    return true;
+    return clientStore.validateToken();
 }
 
 // Replace initTradeWebSocket and use single WebSocket initialization
@@ -184,9 +209,8 @@ function handleProfitTableResponse(profit_table) {
         return;
     }
 
-    const trades = profit_table.transactions;
-    tradeResults = trades.map(trade => {
-        // Add null checks for each property
+    // Convert historical trades to our format and save to localStorage
+    const trades = profit_table.transactions.map(trade => {
         if (!trade) return null;
 
         const profit = typeof trade.profit === 'number' ? trade.profit : 0;
@@ -197,10 +221,16 @@ function handleProfitTableResponse(profit_table) {
             isWin: profit >= 0,
             type: trade.shortcode ? (trade.shortcode.includes('DIGIT OVER') ? 'OVER_5' : 'UNDER_4') : 'Unknown',
             profit: profit,
-            contractId: trade.contract_id || 'Unknown'
+            contractId: trade.contract_id || 'Unknown',
+            timestamp: trade.purchase_time ? trade.purchase_time * 1000 : Date.now()
         };
-    }).filter(Boolean); // Remove any null entries
+    }).filter(Boolean);
     
+    // Save historical trades
+    tradeStore.saveHistory(trades);
+    
+    // Update local variables
+    tradeResults = tradeStore.getHistory();
     totalWins = tradeResults.filter(t => t.isWin).length;
     totalLosses = tradeResults.filter(t => !t.isWin).length;
     
@@ -345,8 +375,16 @@ function handleProposalResponse(proposal) {
     }
 }
 
-// Add cleanup for pending proposals 
+// Replace cleanupTrades function
 function cleanupTrades() {
+    // Clear trade history from localStorage
+    tradeStore.clearHistory();
+    
+    // Reset local variables
+    tradeResults = [];
+    totalWins = 0;
+    totalLosses = 0;
+    
     // Reset pending proposals
     pendingProposals = {
         DIGITOVER: null,
@@ -441,6 +479,14 @@ function updateUI() {
     }
     
     updateDigitDisplay();
+
+    // Update arbitrage bot state
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    if (startButton && stopButton) {
+        startButton.disabled = isRunning;
+        stopButton.disabled = !isRunning;
+    }
 }
 
 function updateDigitDisplay() {
@@ -485,7 +531,7 @@ function updateDigitDisplay() {
     });
 }
 
-// Add this function to update trade results
+// Replace updateTradeResults function
 function updateTradeResults(digit, isWin, contractDetails) {
     const result = {
         time: new Date().toLocaleTimeString(),
@@ -494,14 +540,16 @@ function updateTradeResults(digit, isWin, contractDetails) {
         type: contractDetails.type,
         contractId: contractDetails.contractId,
         profit: contractDetails.profit,
-        duration: contractDetails.duration
+        duration: contractDetails.duration,
+        timestamp: Date.now()
     };
     
-    tradeResults.unshift(result);
-    if (tradeResults.length > 10) tradeResults.pop();
+    tradeResults = tradeStore.addTrade(result);
     
-    if (isWin) totalWins++;
-    else totalLosses++;
+    // Update totals from stored history
+    const history = tradeStore.getHistory();
+    totalWins = history.filter(t => t.isWin).length;
+    totalLosses = history.filter(t => !t.isWin).length;
     
     updateResultsDisplay();
 }
@@ -627,10 +675,53 @@ function toggleFullscreen() {
     }
 }
 
+// Add arbitrage bot controls
+function startArbitrageBot() {
+    if (!clientStore.validateToken()) return;
+    
+    isRunning = true;
+    updateUI();
+
+    if (derivWs?.readyState !== WebSocket.OPEN) {
+        startWebSocket();
+    }
+}
+
+function stopArbitrageBot() {
+    isRunning = false;
+    cleanupTrades();
+    updateUI();
+}
+
+function handleTradeExecution(signal) {
+    if (!isRunning) return;
+    
+    const contractType = signal.type;
+    const stake = parseFloat(document.getElementById('stake').value) || 1;
+
+    const request = {
+        proposal: 1,
+        subscribe: 1,
+        amount: stake,
+        basis: "stake",
+        contract_type: contractType,
+        currency: clientStore.currency,
+        duration: 1,
+        duration_unit: "t",
+        symbol: currentSymbol
+    };
+
+    derivWs.send(JSON.stringify(request));
+}
+
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     startWebSocket();
     
     // Add fullscreen button event listener
     document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
+
+    // Add arbitrage bot button event listeners
+    document.getElementById('startButton').addEventListener('click', startArbitrageBot);
+    document.getElementById('stopButton').addEventListener('click', stopArbitrageBot);
 });
