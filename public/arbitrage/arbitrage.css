@@ -310,19 +310,13 @@ label {
 
 .trade-stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
     margin-bottom: 20px;
     padding: 15px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 10px;
-}
-
-.trade-stats div:last-child {
-    grid-column: 1 / -1;
     text-align: center;
-    font-size: 1.2em;
-    color: #00ff9d;
 }
 
 .trade-results {
@@ -333,38 +327,30 @@ label {
 
 .trade-result {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: auto 1fr auto;
     gap: 10px;
     padding: 12px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.05);
     align-items: center;
-    justify-items: center;
-    text-align: center;
-}
-
-.trade-result span:last-child {
-    text-align: center;
-}
-
-.trade-result.win span:last-child {
-    color: #00ff9d;
-}
-
-.trade-result.loss span:last-child {
-    color: #ff5555;
-}
-
-.trade-result.win {
-    border-left: 4px solid #00ff9d;
-}
-
-.trade-result.loss {
-    border-left: 4px solid #ff5555;
 }
 
 .trade-result span {
     font-size: 14px;
+    padding: 2px 8px;
+}
+
+.trade-result .profit {
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+.trade-result.win .profit {
+    background: rgba(0, 255, 157, 0.2);
+}
+
+.trade-result.loss .profit {
+    background: rgba(255, 85, 85, 0.2);
 }
 
 .fullscreen-btn {

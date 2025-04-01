@@ -273,9 +273,14 @@ function placeTrades(stake, symbol) {
         return;
     }
 
-    // Request proposals for both trade types
-    requestProposal("DIGITOVER", symbol, stake);
-    requestProposal("DIGITUNDER", symbol, stake);
+    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
+    
+    // Only request the appropriate trade based on current digit
+    if (currentDigit < 5) {
+        requestProposal("DIGITOVER", symbol, stake);
+    } else if (currentDigit > 4) {
+        requestProposal("DIGITUNDER", symbol, stake);
+    }
 }
 
 // Modify handleProposalResponse function
@@ -285,34 +290,21 @@ function handleProposalResponse(proposal) {
     // Store in active proposals
     activeProposals.set(proposal.id, proposal);
 
-    // Store in pending proposals
-    if (proposal.contract_type === "DIGITOVER") {
-        pendingProposals.DIGITOVER = proposal;
-    } else if (proposal.contract_type === "DIGITUNDER") {
-        pendingProposals.DIGITUNDER = proposal;
-    }
-
-    // Check if we have both proposals
-    if (pendingProposals.DIGITOVER && pendingProposals.DIGITUNDER) {
-        // Place both trades
-        const overRequest = {
-            buy: pendingProposals.DIGITOVER.id,
-            price: pendingProposals.DIGITOVER.ask_price
+    // Place trade immediately if it's favorable
+    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
+    
+    if (proposal.contract_type === "DIGITOVER" && currentDigit < 5) {
+        const buyRequest = {
+            buy: proposal.id,
+            price: proposal.ask_price
         };
-        const underRequest = {
-            buy: pendingProposals.DIGITUNDER.id, 
-            price: pendingProposals.DIGITUNDER.ask_price
+        derivWs.send(JSON.stringify(buyRequest));
+    } else if (proposal.contract_type === "DIGITUNDER" && currentDigit > 4) {
+        const buyRequest = {
+            buy: proposal.id,
+            price: proposal.ask_price
         };
-
-        // Send both trades
-        derivWs.send(JSON.stringify(overRequest));
-        derivWs.send(JSON.stringify(underRequest));
-
-        // Reset pending proposals
-        pendingProposals = {
-            DIGITOVER: null,
-            DIGITUNDER: null
-        };
+        derivWs.send(JSON.stringify(buyRequest));
     }
 }
 
@@ -458,41 +450,29 @@ function updateTradeResults(digit, isWin, contractDetails) {
     updateResultsDisplay();
 }
 
-// Modify updateResultsDisplay to show more contract details
+// Simplify updateResultsDisplay
 function updateResultsDisplay() {
     const resultsContainer = document.getElementById('trade-results');
     const statsContainer = document.getElementById('trade-stats');
     
-    // Update stats with safe number handling
+    // Update stats
     const totalTrades = totalWins + totalLosses;
-    const winRate = totalTrades > 0 ? ((totalWins / totalTrades) * 100).toFixed(2) : '0.00';
-    const totalProfit = tradeResults.reduce((sum, trade) => {
-        const profit = typeof trade?.profit === 'number' ? trade.profit : 0;
-        return sum + profit;
-    }, 0).toFixed(2);
+    const winRate = totalTrades > 0 ? ((totalWins / totalTrades) * 100).toFixed(1) : '0.0';
+    const totalProfit = tradeResults.reduce((sum, trade) => sum + (trade.profit || 0), 0).toFixed(2);
     
     statsContainer.innerHTML = `
-        <div>Total Trades: ${totalTrades}</div>
-        <div>Wins: ${totalWins}</div>
-        <div>Losses: ${totalLosses}</div>
         <div>Win Rate: ${winRate}%</div>
-        <div>Total Profit: $${totalProfit}</div>
+        <div>Profit: $${totalProfit}</div>
     `;
     
-    // Update results list with safer property access
-    resultsContainer.innerHTML = tradeResults.map(result => {
-        const profit = typeof result?.profit === 'number' ? result.profit.toFixed(2) : '0.00';
-        const duration = typeof result?.duration === 'number' ? result.duration.toFixed(1) : '0.0';
-        
+    // Update results list with simplified display
+    resultsContainer.innerHTML = tradeResults.slice(0, 10).map(result => {
+        const profit = (result.profit || 0).toFixed(2);
         return `
             <div class="trade-result ${result.isWin ? 'win' : 'loss'}">
                 <span>${result.time || 'Unknown'}</span>
-                <span>ID: ${result.contractId || 'Unknown'}</span>
-                <span>Digit: ${result.digit || '?'}</span>
                 <span>${result.type || 'Unknown'}</span>
-                <span>${result.isWin ? 'WIN' : 'LOSS'}</span>
-                <span>$${profit}</span>
-                <span>${duration}s</span>
+                <span class="profit">$${profit}</span>
             </div>
         `;
     }).join('');
