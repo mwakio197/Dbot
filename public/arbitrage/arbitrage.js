@@ -6,11 +6,18 @@ let currentSymbol = "R_100";
 let decimalPlaces = 2;
 let stakeAmount = 0;
 let activeContracts = new Map(); // Track active contracts
+let activeProposals = new Map(); // Track active proposals
 
 let initSurvicateCalled = false;
 let tradeResults = [];
 let totalWins = 0;
 let totalLosses = 0;
+
+// Add new variables at top
+let pendingProposals = {
+    DIGITOVER: null,
+    DIGITUNDER: null
+};
 
 // Add Survicate initialization
 function setSurvicateUserAttributes(residence, account_type, created_at) {
@@ -109,6 +116,12 @@ function startWebSocket() {
         // Handle contract updates
         if (data.proposal_open_contract) {
             handleContractUpdate(data.proposal_open_contract);
+            return;
+        }
+
+        // Handle proposal response
+        if (data.proposal) {
+            handleProposalResponse(data.proposal);
             return;
         }
 
@@ -232,50 +245,104 @@ function requestTradeHistory() {
     derivWs.send(JSON.stringify(request));
 }
 
-// Function to place trades
+// Add new function to request trade proposal
+function requestProposal(contractType, symbol, stake) {
+    const request = {
+        proposal: 1,
+        subscribe: 1,
+        amount: stake,
+        basis: "stake",
+        contract_type: contractType,
+        currency: "USD",
+        duration: 1,
+        duration_unit: "t",
+        symbol: symbol,
+        barrier: contractType === "DIGITOVER" ? "5" : "4"
+    };
+    
+    derivWs.send(JSON.stringify(request));
+}
+
+// Modify the placeTrades function
 function placeTrades(stake, symbol) {
     if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
         showNotification('WebSocket not connected', 'error');
         return;
     }
 
-    const batchRequest = {
-        passthrough: { 
-            batch: true,
-            login_id: activeLoginId 
-        },
-        requests: [
-            {
-                buy: 1,
-                price: stake,
-                parameters: {
-                    contract_type: "DIGITOVER",
-                    symbol: symbol,
-                    duration: 1,
-                    duration_unit: "t",
-                    barrier: "5",
-                    basis: "stake",
-                    currency: "USD"
-                }
-            },
-            {
-                buy: 1,
-                price: stake,
-                parameters: {
-                    contract_type: "DIGITUNDER",
-                    symbol: symbol,
-                    duration: 1,
-                    duration_unit: "t",
-                    barrier: "4",
-                    basis: "stake",
-                    currency: "USD"
-                }
-            }
-        ]
+    // Request proposals for both trade types
+    requestProposal("DIGITOVER", symbol, stake);
+    requestProposal("DIGITUNDER", symbol, stake);
+}
+
+// Modify handleProposalResponse function
+function handleProposalResponse(proposal) {
+    if (!proposal?.id || !proposal?.ask_price) return;
+
+    // Store in active proposals
+    activeProposals.set(proposal.id, proposal);
+
+    // Store in pending proposals
+    if (proposal.contract_type === "DIGITOVER") {
+        pendingProposals.DIGITOVER = proposal;
+    } else if (proposal.contract_type === "DIGITUNDER") {
+        pendingProposals.DIGITUNDER = proposal;
+    }
+
+    // Check if we have both proposals
+    if (pendingProposals.DIGITOVER && pendingProposals.DIGITUNDER) {
+        // Place both trades
+        const overRequest = {
+            buy: pendingProposals.DIGITOVER.id,
+            price: pendingProposals.DIGITOVER.ask_price
+        };
+        const underRequest = {
+            buy: pendingProposals.DIGITUNDER.id, 
+            price: pendingProposals.DIGITUNDER.ask_price
+        };
+
+        // Send both trades
+        derivWs.send(JSON.stringify(overRequest));
+        derivWs.send(JSON.stringify(underRequest));
+
+        // Reset pending proposals
+        pendingProposals = {
+            DIGITOVER: null,
+            DIGITUNDER: null
+        };
+    }
+}
+
+// Add cleanup for pending proposals 
+function cleanupTrades() {
+    // Reset pending proposals
+    pendingProposals = {
+        DIGITOVER: null,
+        DIGITUNDER: null
     };
 
-    derivWs.send(JSON.stringify(batchRequest));
+    // Forget all proposals
+    activeProposals.forEach((proposal, id) => {
+        const request = {
+            forget: id
+        };
+        derivWs.send(JSON.stringify(request));
+    });
+    activeProposals.clear();
+
+    // Close all active contract subscriptions
+    activeContracts.forEach((_, contractId) => {
+        const request = {
+            forget_all: ["proposal_open_contract"],
+            contract_id: contractId
+        };
+        derivWs.send(JSON.stringify(request));
+    });
+    activeContracts.clear();
 }
+
+// Modify beforeunload handler
+window.addEventListener('beforeunload', cleanupTrades);
 
 // Add contract subscription function
 function subscribeToContract(contractId) {
@@ -442,22 +509,22 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
     const symbol = document.getElementById('symbol').value;
     
     if (stake && symbol) {
+        // Cleanup any existing trades first
+        cleanupTrades();
+        
         stakeAmount = stake;
         currentSymbol = symbol;
         
-        // Just place the trades once
+        // Request new trades
         placeTrades(stake, symbol);
         
-        // Start websocket for analysis only
-        startWebSocket();
-        
-        // Disable the form submit button to prevent multiple submissions
+        // Disable submit button temporarily
         const submitButton = document.querySelector('#tradingForm button[type="submit"]');
         if (submitButton) {
             submitButton.disabled = true;
             setTimeout(() => {
                 submitButton.disabled = false;
-            }, 2000); // Re-enable after 2 seconds
+            }, 2000);
         }
     }
 });
@@ -504,19 +571,6 @@ function toggleFullscreen() {
         }
     }
 }
-
-// Add cleanup function for page unload
-window.addEventListener('beforeunload', () => {
-    // Close all active contract subscriptions
-    activeContracts.forEach((_, contractId) => {
-        const request = {
-            forget_all: ["proposal_open_contract"],
-            contract_id: contractId
-        };
-        derivWs.send(JSON.stringify(request));
-    });
-    activeContracts.clear();
-});
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
