@@ -20,6 +20,35 @@ let pendingProposals = {
     DIGITUNDER: null
 };
 
+// Add storage fallback and error handling
+const storage = {
+    get(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            console.warn('Storage access failed, falling back to memory storage');
+            return this.memoryStore[key];
+        }
+    },
+    set(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (e) {
+            console.warn('Storage access failed, falling back to memory storage');
+            this.memoryStore[key] = value;
+        }
+    },
+    remove(key) {
+        try {
+            localStorage.removeItem(key);
+        } catch (e) {
+            console.warn('Storage access failed, falling back to memory storage');
+            delete this.memoryStore[key];
+        }
+    },
+    memoryStore: {}
+};
+
 // Update client store with active account handling
 let clientStore = {
     loginid: '',
@@ -29,7 +58,7 @@ let clientStore = {
     balance: '0',
     getToken() {
         try {
-            const accounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
+            const accounts = JSON.parse(storage.get('accountsList') || '{}');
             const token = accounts[this.loginid]?.token;
             console.log('Getting token for:', this.loginid, !!token);
             return token || '';
@@ -64,8 +93,8 @@ let clientStore = {
     },
     getActiveAccount() {
         try {
-            const active_loginid = localStorage.getItem('active_loginid');
-            const accounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
+            const active_loginid = storage.get('active_loginid');
+            const accounts = JSON.parse(storage.get('accountsList') || '{}');
             const account = accounts[active_loginid];
             
             if (!account) return null;
@@ -101,10 +130,10 @@ let clientStore = {
 // Add after client store declaration
 const tradeStore = {
     getHistory() {
-        return JSON.parse(localStorage.getItem('tradeHistory') || '[]');
+        return JSON.parse(storage.get('tradeHistory') || '[]');
     },
     saveHistory(trades) {
-        localStorage.setItem('tradeHistory', JSON.stringify(trades));
+        storage.set('tradeHistory', JSON.stringify(trades));
     },
     addTrade(trade) {
         const history = this.getHistory();
@@ -114,7 +143,7 @@ const tradeStore = {
         return history;
     },
     clearHistory() {
-        localStorage.setItem('tradeHistory', '[]');
+        storage.set('tradeHistory', '[]');
     }
 };
 
@@ -133,7 +162,7 @@ function initSurvicate() {
     if (initSurvicateCalled) return;
     initSurvicateCalled = true;
 
-    const client_accounts = JSON.parse(localStorage.getItem('accountsList')) || undefined;
+    const client_accounts = JSON.parse(storage.get('accountsList')) || undefined;
 
     if (clientStore.loginid && client_accounts) {
         const { residence, account_type, created_at } = client_accounts[clientStore.loginid] || {};
@@ -186,14 +215,14 @@ function startWebSocket() {
         tickHistory = [];
     }
 
-    // Get token from URL or localStorage
+    // Get token from URL or storage
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token1');
-    const storedToken = localStorage.getItem('deriv_token');
+    const storedToken = storage.get('deriv_token');
     
     // If we have a new token from URL, store it
     if (token) {
-        localStorage.setItem('deriv_token', token);
+        storage.set('deriv_token', token);
         // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -298,7 +327,7 @@ function handleProfitTableResponse(profit_table) {
         return;
     }
 
-    // Convert historical trades to our format and save to localStorage
+    // Convert historical trades to our format and save to storage
     const trades = profit_table.transactions.map(trade => {
         if (!trade) return null;
 
@@ -471,7 +500,7 @@ function handleProposalResponse(proposal) {
 
 // Replace cleanupTrades function
 function cleanupTrades() {
-    // Clear trade history from localStorage
+    // Clear trade history from storage
     tradeStore.clearHistory();
     
     // Reset local variables
@@ -728,11 +757,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (token) {
         // We have a fresh token from authentication
-        localStorage.setItem('deriv_token', token);
+        storage.set('deriv_token', token);
         startWebSocket();
     } else {
         // Check for stored token
-        const storedToken = localStorage.getItem('deriv_token');
+        const storedToken = storage.get('deriv_token');
         if (storedToken) {
             startWebSocket();
         } else {
@@ -748,7 +777,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Update logout handling
 function logout() {
-    localStorage.removeItem('deriv_token');
+    storage.remove('deriv_token');
     if (derivWs) {
         derivWs.close();
     }
