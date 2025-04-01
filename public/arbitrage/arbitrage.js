@@ -17,28 +17,55 @@ let pendingProposals = {
     DIGITUNDER: null
 };
 
-// Replace simple token handling with robust client-store based auth
+// Replace clientStore with enhanced version
 let clientStore = {
     loginid: '',
     is_logged_in: false,
     accounts: {},
     currency: 'USD',
     balance: '0',
+    initialized: false,
     getToken() {
         const accountList = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
         return accountList[this.loginid] ?? '';
     },
+    init() {
+        if (this.initialized) return;
+        
+        const active_loginid = localStorage.getItem('active_loginid');
+        const accountList = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
+        
+        if (active_loginid && accountList[active_loginid]) {
+            this.loginid = active_loginid;
+            this.is_logged_in = true;
+            this.accounts = accountList;
+            if (accountList[active_loginid].currency) {
+                this.currency = accountList[active_loginid].currency;
+            }
+        }
+        
+        this.initialized = true;
+        return this.is_logged_in;
+    },
     setLoginId(loginid) {
         this.loginid = loginid;
+        localStorage.setItem('active_loginid', loginid);
     },
     setIsLoggedIn(is_logged_in) {
         this.is_logged_in = is_logged_in;
     },
     setBalance(balance) {
         this.balance = balance;
+        this.updateUI();
     },
     setCurrency(currency) {
         this.currency = currency;
+    },
+    updateUI() {
+        const balanceElement = document.getElementById("account-balance");
+        if (balanceElement) {
+            balanceElement.textContent = `Balance: ${this.currency} ${Number(this.balance).toFixed(2)}`;
+        }
     }
 };
 
@@ -92,7 +119,7 @@ function validateToken() {
     return true;
 }
 
-// Replace initTradeWebSocket and use single WebSocket initialization
+// Replace startWebSocket function
 function startWebSocket() {
     if (derivWs) {
         derivWs.close();
@@ -103,31 +130,43 @@ function startWebSocket() {
     
     derivWs.onopen = function() {
         console.log('WebSocket connected');
-        const token = clientStore.getToken();
-        if (token) {
-            const authData = { authorize: token };
-            derivWs.send(JSON.stringify(authData));
+        // Initialize client store before authorization
+        if (clientStore.init() && clientStore.getToken()) {
+            const authRequest = {
+                authorize: clientStore.getToken(),
+                account: clientStore.loginid
+            };
+            derivWs.send(JSON.stringify(authRequest));
+        } else {
+            showNotification('Please log in to continue', 'error');
         }
-        requestTickHistory();
     };
 
-    // Modify onmessage to handle balance updates
+    // Modify onmessage to handle initial balance
     derivWs.onmessage = function(event) {
         const data = JSON.parse(event.data);
         
         if (data.error) {
             showNotification(data.error.message, 'error');
+            if (data.error.code === 'InvalidToken') {
+                clientStore.setIsLoggedIn(false);
+                clientStore.setBalance('0');
+            }
             return;
         }
 
-        // Handle authorization response with balance
+        // Enhanced authorization handling
         if (data.authorize) {
             clientStore.setLoginId(data.authorize.loginid);
             clientStore.setIsLoggedIn(true);
-            clientStore.setBalance(data.authorize.balance);
             clientStore.setCurrency(data.authorize.currency);
+            clientStore.setBalance(data.authorize.balance);
+            
+            // Request additional account data
+            requestAccountSettings();
             requestTradeHistory();
             subscribeToBalance();
+            requestTickHistory();
             return;
         }
 
@@ -175,6 +214,16 @@ function startWebSocket() {
     derivWs.onerror = function(error) {
         console.error('WebSocket error:', error);
     };
+}
+
+// Add account settings request
+function requestAccountSettings() {
+    if (!derivWs || derivWs.readyState !== WebSocket.OPEN) return;
+    
+    const request = {
+        get_settings: 1
+    };
+    derivWs.send(JSON.stringify(request));
 }
 
 // Helper functions to handle different message types
@@ -544,13 +593,31 @@ document.getElementById('symbol').addEventListener('change', function(e) {
     }
 });
 
+// Add account status check before trades
+function validateAccount() {
+    if (!clientStore.is_logged_in) {
+        showNotification('Please log in to trade', 'error');
+        return false;
+    }
+    
+    if (!clientStore.initialized) {
+        showNotification('Account not fully initialized', 'error');
+        return false;
+    }
+    
+    if (parseFloat(clientStore.balance) <= 0) {
+        showNotification('Insufficient balance', 'error');
+        return false;
+    }
+    
+    return true;
+}
+
 // Modify the form submission handler
 document.getElementById('tradingForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
-    if (!validateToken()) {
-        return;
-    }
+    if (!validateAccount()) return;
 
     const stake = parseFloat(document.getElementById('stake').value);
     const symbol = document.getElementById('symbol').value;
@@ -629,7 +696,12 @@ function toggleFullscreen() {
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-    startWebSocket();
+    // Initialize client store first
+    if (clientStore.init()) {
+        startWebSocket();
+    } else {
+        showNotification('Please log in to start trading', 'info');
+    }
     
     // Add fullscreen button event listener
     document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
