@@ -333,45 +333,29 @@ function requestProposal(contractType, symbol, stake) {
     derivWs.send(JSON.stringify(request));
 }
 
-// Modify the placeTrades function
+// Modify placeTrades function to only handle DIGITOVER
 function placeTrades(stake, symbol) {
     if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
         showNotification('WebSocket not connected', 'error');
         return;
     }
 
-    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
-    
-    // Only request the appropriate trade based on current digit
-    if (currentDigit < 5) {
-        requestProposal("DIGITOVER", symbol, stake);
-    } else if (currentDigit > 4) {
-        requestProposal("DIGITUNDER", symbol, stake);
-    }
+    // Always request DIGITOVER trade
+    requestProposal("DIGITOVER", symbol, stake);
+    showNotification('Placing DIGITOVER trade...', 'info');
 }
 
-// Modify handleProposalResponse function
+// Modify handleProposalResponse to execute single trade
 function handleProposalResponse(proposal) {
     if (!proposal?.id || !proposal?.ask_price) return;
 
-    // Store in active proposals
-    activeProposals.set(proposal.id, proposal);
-
-    // Place trade immediately if it's favorable
-    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
-    
-    if (proposal.contract_type === "DIGITOVER" && currentDigit < 5) {
+    if (proposal.contract_type === "DIGITOVER") {
         const buyRequest = {
             buy: proposal.id,
             price: proposal.ask_price
         };
         derivWs.send(JSON.stringify(buyRequest));
-    } else if (proposal.contract_type === "DIGITUNDER" && currentDigit > 4) {
-        const buyRequest = {
-            buy: proposal.id,
-            price: proposal.ask_price
-        };
-        derivWs.send(JSON.stringify(buyRequest));
+        showNotification('DIGITOVER trade executed', 'success');
     }
 }
 
@@ -596,30 +580,21 @@ document.getElementById('symbol').addEventListener('change', function(e) {
 document.getElementById('tradingForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
-    if (!validateToken()) {
-        return;
-    }
+    if (!validateToken()) return;
 
     const stake = parseFloat(document.getElementById('stake').value);
     const symbol = document.getElementById('symbol').value;
     
     if (stake && symbol) {
-        // Cleanup any existing trades first
         cleanupTrades();
-        
         stakeAmount = stake;
         currentSymbol = symbol;
-        
-        // Request new trades
         placeTrades(stake, symbol);
         
-        // Disable submit button temporarily
+        // Disable submit button permanently until page refresh
         const submitButton = document.querySelector('#tradingForm button[type="submit"]');
         if (submitButton) {
             submitButton.disabled = true;
-            setTimeout(() => {
-                submitButton.disabled = false;
-            }, 2000);
         }
     }
 });
@@ -704,7 +679,7 @@ function handleTradeExecution(signal) {
         subscribe: 1,
         amount: stake,
         basis: "stake",
-        contract_type: contractType,
+        contract_type: DIGITOVER,
         currency: clientStore.currency,
         duration: 1,
         duration_unit: "t",
