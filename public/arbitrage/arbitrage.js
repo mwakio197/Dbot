@@ -1,4 +1,5 @@
 let derivWs;
+let tickWs; // Add websocket for ticks only
 let tickHistory = [];
 let currentSymbol = "R_100";
 let decimalPlaces = 2;
@@ -188,49 +189,58 @@ function validateToken() {
     return clientStore.validateToken();
 }
 
-// Add authentication state management
-function updateAuthState(authenticated) {
-    isAuthenticated = authenticated;
-    const authContainer = document.getElementById('auth-container');
-    const mainContainer = document.getElementById('main-container');
-    
-    if (authenticated) {
-        authContainer.classList.add('hidden');
-        mainContainer.classList.remove('hidden');
-    } else {
-        authContainer.classList.remove('hidden');
-        mainContainer.classList.add('hidden');
-    }
-}
-
 // Update these constants at the top of the file
 const APP_ID = '70827'; // Official Deriv app ID
 const OAUTH_URL = 'https://oauth.deriv.com/oauth2/authorize';
 const WS_URL = 'wss://ws.binaryws.com/websockets/v3';
 
-// Modify startWebSocket function
+// Add at the top after initial variables
+const auth = {
+    getLoginId() {
+        const login_id = localStorage.getItem('active_loginid');
+        if (login_id && login_id !== 'null') return login_id;
+        return null;
+    },
+
+    getActiveToken() {
+        const token = localStorage.getItem('authToken');
+        if (token && token !== 'null') return token;
+        return null;
+    },
+
+    getActiveClientId() {
+        const token = this.getActiveToken();
+        if (!token) return null;
+        
+        const account_list = JSON.parse(localStorage.getItem('accountsList'));
+        if (account_list && account_list !== 'null') {
+            const active_clientId = Object.keys(account_list).find(key => account_list[key] === token);
+            return active_clientId;
+        }
+        return null;
+    },
+
+    getToken() {
+        const active_loginid = this.getLoginId();
+        const client_accounts = JSON.parse(localStorage.getItem('accountsList')) ?? undefined;
+        const active_account = (client_accounts && client_accounts[active_loginid]) || {};
+        return {
+            token: active_account ?? undefined,
+            account_id: active_loginid ?? undefined,
+        };
+    }
+};
+
+// Replace startWebSocket function
 function startWebSocket() {
     if (derivWs) {
         derivWs.close();
         tickHistory = [];
     }
 
-    // Get token from URL or storage
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token1');
-    const storedToken = storage.get('deriv_token');
-    
-    // If we have a new token from URL, store it
-    if (token) {
-        storage.set('deriv_token', token);
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    const activeToken = token || storedToken;
-    if (!activeToken) {
-        showNotification('No valid token found', 'error');
-        updateAuthState(false);
+    const { token } = auth.getToken();
+    if (!token) {
+        console.error('No valid token found');
         return;
     }
 
@@ -238,7 +248,7 @@ function startWebSocket() {
     
     derivWs.onopen = function() {
         console.log('WebSocket connected, authorizing...');
-        derivWs.send(JSON.stringify({ authorize: activeToken }));
+        derivWs.send(JSON.stringify({ authorize: token }));
     };
 
     derivWs.onmessage = function(event) {
@@ -246,7 +256,6 @@ function startWebSocket() {
         
         if (data.error) {
             showNotification(data.error.message, 'error');
-            updateAuthState(false);
             return;
         }
 
@@ -256,7 +265,6 @@ function startWebSocket() {
             clientStore.setIsLoggedIn(true);
             clientStore.setBalance(data.authorize.balance);
             clientStore.setCurrency(data.authorize.currency);
-            updateAuthState(true);
             requestTradeHistory();
             subscribeToBalance();
             return;
@@ -292,11 +300,6 @@ function startWebSocket() {
             handleProposalResponse(data.proposal);
             return;
         }
-
-        // Handle tick data
-        if (data.history || data.tick) {
-            handleTickData(data);
-        }
     };
 
     derivWs.onclose = function() {
@@ -318,6 +321,41 @@ function startWebSocket() {
             }
         }
     });
+}
+
+// Add websocket for ticks only
+function startTickAnalysis(symbol = 'R_100') {
+    if (tickWs) {
+        tickWs.close();
+    }
+
+    tickWs = new WebSocket(`${WS_URL}?app_id=${APP_ID}`);
+    
+    tickWs.onopen = function() {
+        console.log('Tick WebSocket connected');
+        // Subscribe to tick history
+        const request = {
+            ticks_history: symbol,
+            count: 100,
+            end: "latest",
+            style: "ticks",
+            subscribe: 1
+        };
+        tickWs.send(JSON.stringify(request));
+    };
+
+    tickWs.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        // Handle tick data without requiring auth
+        if (data.history || data.tick) {
+            handleTickData(data);
+        }
+    };
+
+    tickWs.onclose = function() {
+        console.log('Tick WebSocket disconnected');
+    };
 }
 
 // Helper functions to handle different message types
@@ -399,6 +437,7 @@ function handleContractUpdate(contract) {
     }
 }
 
+// Modify handleTickData to be auth-independent
 function handleTickData(data) {
     if (data.history && Array.isArray(data.history.prices)) {
         tickHistory = data.history.prices.map((price, index) => ({
@@ -414,7 +453,7 @@ function handleTickData(data) {
         });
         if (tickHistory.length > 100) tickHistory.shift();
     }
-    updateUI();
+    updateDigitAnalysis();
 }
 
 // Add after WebSocket initialization
@@ -583,50 +622,85 @@ function detectDecimalPlaces() {
 }
 
 function getLastDigit(price) {
-    let priceStr = price.toString();
-    let priceParts = priceStr.split(".");
-    let decimals = priceParts[1] || "";
-    while (decimals.length < decimalPlaces) decimals += "0";
-    return Number(decimals.slice(-1));
+    if (price === undefined || price === null) return 0;
+    
+    try {
+        let priceStr = price.toString();
+        let priceParts = priceStr.split(".");
+        let decimals = priceParts[1] || "";
+        while (decimals.length < decimalPlaces) decimals += "0";
+        return Number(decimals.slice(-1));
+    } catch (error) {
+        console.error('Error getting last digit:', error);
+        return 0;
+    }
 }
 
-// Modify updateUI to show balance
-function updateUI() {
-    const currentPrice = tickHistory[tickHistory.length - 1]?.quote.toFixed(decimalPlaces);
-    document.getElementById("current-price").textContent = currentPrice || "N/A";
-    
-    // Add balance display
-    const balanceElement = document.getElementById("account-balance");
-    if (balanceElement) {
-        balanceElement.textContent = `Balance: ${clientStore.currency} ${Number(clientStore.balance).toFixed(2)}`;
+// Split UI update into analysis-only and trading parts
+function updateDigitAnalysis() {
+    try {
+        const currentPrice = tickHistory[tickHistory.length - 1]?.quote;
+        const priceElement = document.getElementById("current-price");
+        if (priceElement) {
+            priceElement.textContent = currentPrice !== undefined ? 
+                currentPrice.toFixed(decimalPlaces) : "N/A";
+        }
+        
+        updateDigitDisplay();
+    } catch (error) {
+        console.error('Error updating digit analysis:', error);
     }
-    
-    updateDigitDisplay();
+}
 
-    // Update arbitrage bot state
-    const startButton = document.getElementById('startButton');
-    const stopButton = document.getElementById('stopButton');
-    if (startButton && stopButton) {
-        startButton.disabled = isRunning;
-        stopButton.disabled = !isRunning;
+function updateUI() {
+    try {
+        const balanceElement = document.getElementById("account-balance");
+        if (balanceElement) {
+            balanceElement.textContent = `Balance: ${clientStore.currency} ${Number(clientStore.balance).toFixed(2)}`;
+        }
+        
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        if (startButton && stopButton) {
+            startButton.disabled = isRunning;
+            stopButton.disabled = !isRunning;
+        }
+    } catch (error) {
+        console.error('Error updating UI:', error);
     }
 }
 
 function updateDigitDisplay() {
-    const digitCounts = new Array(10).fill(0);
-    tickHistory.forEach(tick => {
-        const lastDigit = getLastDigit(tick.quote);
-        digitCounts[lastDigit]++;
-    });
-
-    const digitPercentages = digitCounts.map(count => (count / tickHistory.length) * 100);
-    const maxPercentage = Math.max(...digitPercentages);
-    const minPercentage = Math.min(...digitPercentages);
-    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
+    if (!tickHistory || !tickHistory.length) {
+        console.warn('No tick history available');
+        return;
+    }
 
     const container = document.getElementById("digit-display-container");
-    container.innerHTML = "";
+    if (!container) {
+        console.warn('Digit container not found');
+        return;
+    }
 
+    const digitCounts = new Array(10).fill(0);
+    tickHistory.forEach(tick => {
+        if (tick && typeof tick.quote === 'number') {
+            const lastDigit = getLastDigit(tick.quote);
+            if (lastDigit >= 0 && lastDigit <= 9) {
+                digitCounts[lastDigit]++;
+            }
+        }
+    });
+
+    const total = digitCounts.reduce((sum, count) => sum + count, 0);
+    const digitPercentages = digitCounts.map(count => total > 0 ? (count / total) * 100 : 0);
+    const maxPercentage = Math.max(...digitPercentages);
+    const minPercentage = Math.min(...digitPercentages);
+    
+    const currentQuote = tickHistory[tickHistory.length - 1]?.quote;
+    const currentDigit = currentQuote !== undefined ? getLastDigit(currentQuote) : null;
+
+    container.innerHTML = "";
     digitPercentages.forEach((percentage, digit) => {
         const digitContainer = document.createElement("div");
         digitContainer.classList.add("digit-container");
@@ -711,7 +785,12 @@ document.getElementById('symbol').addEventListener('change', function(e) {
     if (newSymbol) {
         currentSymbol = newSymbol;
         tickHistory = [];
-        startWebSocket();
+        startTickAnalysis(newSymbol);
+        
+        // If we're authenticated, also update trading websocket
+        if (auth.getToken().token) {
+            startWebSocket();
+        }
     }
 });
 
@@ -751,49 +830,18 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
 
 // Replace the DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', function() {
-    // Check URL for token first
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token1');
+    // Start tick analysis immediately
+    startTickAnalysis(currentSymbol);
     
-    if (token) {
-        // We have a fresh token from authentication
-        storage.set('deriv_token', token);
+    // Start trading websocket if authenticated
+    if (auth.getToken().token) {
         startWebSocket();
-    } else {
-        // Check for stored token
-        const storedToken = storage.get('deriv_token');
-        if (storedToken) {
-            startWebSocket();
-        } else {
-            updateAuthState(false);
-        }
     }
 
     // Add event listeners
     document.getElementById('fullscreen-btn')?.addEventListener('click', toggleFullscreen);
     document.getElementById('startButton')?.addEventListener('click', startArbitrageBot);
     document.getElementById('stopButton')?.addEventListener('click', stopArbitrageBot);
-});
-
-// Update logout handling
-function logout() {
-    storage.remove('deriv_token');
-    if (derivWs) {
-        derivWs.close();
-    }
-    updateAuthState(false);
-    showNotification('Logged out successfully', 'info');
-}
-
-// Add logout handler to storage events
-window.addEventListener('storage', (e) => {
-    if (e.key === 'deriv_token') {
-        if (!e.newValue) {
-            logout();
-        } else if (e.newValue !== e.oldValue) {
-            startWebSocket(); // Reconnect with new token
-        }
-    }
 });
 
 // Add fullscreen functionality
