@@ -64,33 +64,41 @@ let clientStore = {
     getActiveAccount() {
         try {
             const active_loginid = localStorage.getItem('active_loginid');
+            if (!active_loginid) {
+                console.error('No active login ID found');
+                return null;
+            }
+
             const accounts = JSON.parse(localStorage.getItem('accountsList') || '{}');
             const account = accounts[active_loginid];
             
-            if (!account) return null;
+            if (!account?.token) {
+                console.error('No valid token found for account:', active_loginid);
+                return null;
+            }
 
-            // Update store state with active account info
+            // Update store state
             this.loginid = active_loginid;
             this.currency = account.currency;
             this.is_logged_in = true;
             this.balance = account.balance || '0';
             
-            console.log('Active account:', {
-                loginid: this.loginid,
-                currency: this.currency,
-                is_logged_in: this.is_logged_in
+            console.log('Account initialized:', {
+                loginid: active_loginid,
+                currency: account.currency,
+                balance: account.balance
             });
             
             return account;
         } catch (error) {
-            console.error('Error getting active account:', error);
+            console.error('Account initialization failed:', error);
             return null;
         }
     },
     initialize() {
         const account = this.getActiveAccount();
-        if (!account) {
-            console.error('No active account found during initialization');
+        if (!account?.token) {
+            showNotification('Please log in to trade', 'error');
             return false;
         }
         return true;
@@ -158,30 +166,47 @@ function validateToken() {
     return clientStore.validateToken();
 }
 
-// Replace startWebSocket function
+// Enhance WebSocket connection handling
 function startWebSocket() {
     if (derivWs) {
+        console.log('Closing existing connection');
         derivWs.close();
         tickHistory = [];
     }
 
     const activeAccount = clientStore.getActiveAccount();
-    if (!activeAccount) {
-        showNotification('No active account found', 'error');
-        return;
-    }
-
-    const token = activeAccount.token;
-    if (!token) {
-        showNotification('No valid token found', 'error');
+    if (!activeAccount?.token) {
+        showNotification('Authentication required', 'error');
         return;
     }
 
     derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
     
     derivWs.onopen = function() {
-        console.log('WebSocket connected, authorizing...');
-        derivWs.send(JSON.stringify({ authorize: token }));
+        console.log('Authorizing connection...');
+        derivWs.send(JSON.stringify({ authorize: activeAccount.token }));
+    };
+
+    // Add connection state monitoring
+    let pingInterval;
+    
+    derivWs.onopen = function() {
+        console.log('WebSocket connected');
+        pingInterval = setInterval(() => {
+            if (derivWs.readyState === WebSocket.OPEN) {
+                derivWs.send(JSON.stringify({ping: 1}));
+            }
+        }, 10000);
+    };
+
+    derivWs.onclose = function() {
+        console.log('Connection closed, cleaning up');
+        clearInterval(pingInterval);
+        setTimeout(startWebSocket, 1000); // Auto reconnect
+    };
+
+    derivWs.onerror = function(error) {
+        console.error('WebSocket error:', error);
     };
 
     derivWs.onmessage = function(event) {
@@ -240,14 +265,6 @@ function startWebSocket() {
         }
     };
 
-    derivWs.onclose = function() {
-        console.log('WebSocket disconnected');
-    };
-    
-    derivWs.onerror = function(error) {
-        console.error('WebSocket error:', error);
-    };
-
     // Update storage event listener for account changes
     window.addEventListener('storage', function(e) {
         if (e.key === 'active_loginid') {
@@ -296,22 +313,26 @@ function handleProfitTableResponse(profit_table) {
     updateResultsDisplay();
 }
 
+// Modify trade response handler
 function handleBuyResponse(buy) {
     if (!buy?.contract_id) {
         console.error('Invalid buy response:', buy);
+        showNotification('Trade failed', 'error');
         return;
     }
 
+    console.log('Trade executed:', buy);
     const contractId = buy.contract_id;
-    const contractType = buy.contract_type || 'Unknown';
-    activeContracts.set(contractId, {
-        type: contractType,
-        openTime: new Date(),
-        stake: buy.buy_price || 0
-    });
     
+    activeContracts.set(contractId, {
+        type: 'DIGITOVER',
+        openTime: new Date(),
+        stake: buy.buy_price,
+        contractId: contractId
+    });
+
     subscribeToContract(contractId);
-    showNotification(`${contractType} contract opened: ${contractId}`, 'success');
+    showNotification(`Trade opened: ${contractId}`, 'success');
 }
 
 function handleContractUpdate(contract) {
@@ -392,23 +413,23 @@ function requestProposal(contractType, symbol, stake) {
     derivWs.send(JSON.stringify(request));
 }
 
-// Modify placeTrades to execute trade immediately
+// Modify trade execution function
 function placeTrades(stake, symbol) {
-    if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
-        showNotification('WebSocket not connected', 'error');
+    if (!derivWs?.readyState === WebSocket.OPEN) {
+        showNotification('Connecting...', 'info');
+        startWebSocket();
         return;
     }
 
     const activeAccount = clientStore.getActiveAccount();
-    if (!activeAccount) {
-        showNotification('No active account found', 'error');
+    if (!activeAccount?.token) {
+        showNotification('Please log in first', 'error');
         return;
     }
 
-    const request = {
+    // Direct trade execution for DIGITOVER
+    const tradeRequest = {
         buy: 1,
-        subscribe: 1,
-        price: stake,
         parameters: {
             amount: stake,
             basis: "stake",
@@ -421,8 +442,8 @@ function placeTrades(stake, symbol) {
         }
     };
 
-    derivWs.send(JSON.stringify(request));
-    showNotification('Placing DIGITOVER trade...', 'info');
+    console.log('Executing trade:', tradeRequest);
+    derivWs.send(JSON.stringify(tradeRequest));
 }
 
 // Modify handleProposalResponse to execute single trade
