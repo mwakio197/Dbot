@@ -1,6 +1,4 @@
 let derivWs;
-let tradingToken = localStorage.getItem('authToken');
-let activeLoginId = localStorage.getItem('active_loginid');
 let tickHistory = [];
 let currentSymbol = "R_100";
 let decimalPlaces = 2;
@@ -17,6 +15,31 @@ let totalLosses = 0;
 let pendingProposals = {
     DIGITOVER: null,
     DIGITUNDER: null
+};
+
+// Replace simple token handling with robust client-store based auth
+let clientStore = {
+    loginid: '',
+    is_logged_in: false,
+    accounts: {},
+    currency: 'USD',
+    balance: '0',
+    getToken() {
+        const accountList = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
+        return accountList[this.loginid] ?? '';
+    },
+    setLoginId(loginid) {
+        this.loginid = loginid;
+    },
+    setIsLoggedIn(is_logged_in) {
+        this.is_logged_in = is_logged_in;
+    },
+    setBalance(balance) {
+        this.balance = balance;
+    },
+    setCurrency(currency) {
+        this.currency = currency;
+    }
 };
 
 // Add Survicate initialization
@@ -36,8 +59,8 @@ function initSurvicate() {
 
     const client_accounts = JSON.parse(localStorage.getItem('accountsList')) || undefined;
 
-    if (activeLoginId && client_accounts) {
-        const { residence, account_type, created_at } = client_accounts[activeLoginId] || {};
+    if (clientStore.loginid && client_accounts) {
+        const { residence, account_type, created_at } = client_accounts[clientStore.loginid] || {};
         setSurvicateUserAttributes(residence, account_type, created_at);
     }
 }
@@ -55,37 +78,40 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
-// Add token validation function
+// Replace validateToken function
 function validateToken() {
-    if (!tradingToken) {
-        showNotification('No trading token found. Please log in.', 'error');
+    if (!clientStore.is_logged_in) {
+        showNotification('Please log in to trade', 'error');
         return false;
     }
-    if (!activeLoginId) {
-        showNotification('No active account found. Please log in.', 'error');
+    const token = clientStore.getToken();
+    if (!token) {
+        showNotification('No trading token found. Please log in.', 'error');
         return false;
     }
     return true;
 }
 
-// Replace startWebSocket with simpler version
+// Replace initTradeWebSocket and use single WebSocket initialization
 function startWebSocket() {
-    // Get existing WebSocket if available
-    derivWs = localStorage.getItem('deriv_ws');
-    
-    if (!derivWs) {
-        derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
-        localStorage.setItem('deriv_ws', derivWs);
+    if (derivWs) {
+        derivWs.close();
+        tickHistory = [];
     }
 
+    derivWs = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=68848');
+    
     derivWs.onopen = function() {
         console.log('WebSocket connected');
-        if (tradingToken) {
-            derivWs.send(JSON.stringify({ authorize: tradingToken }));
+        const token = clientStore.getToken();
+        if (token) {
+            const authData = { authorize: token };
+            derivWs.send(JSON.stringify(authData));
         }
         requestTickHistory();
     };
-    
+
+    // Modify onmessage to handle balance updates
     derivWs.onmessage = function(event) {
         const data = JSON.parse(event.data);
         
@@ -94,9 +120,21 @@ function startWebSocket() {
             return;
         }
 
-        // Handle authorization response
+        // Handle authorization response with balance
         if (data.authorize) {
+            clientStore.setLoginId(data.authorize.loginid);
+            clientStore.setIsLoggedIn(true);
+            clientStore.setBalance(data.authorize.balance);
+            clientStore.setCurrency(data.authorize.currency);
             requestTradeHistory();
+            subscribeToBalance();
+            return;
+        }
+
+        // Handle balance updates
+        if (data.balance) {
+            clientStore.setBalance(data.balance.balance);
+            updateUI();
             return;
         }
 
@@ -217,19 +255,17 @@ function handleTickData(data) {
     if (data.history && Array.isArray(data.history.prices)) {
         tickHistory = data.history.prices.map((price, index) => ({
             time: data.history.times?.[index] || Date.now(),
-            quote: parseFloat(price)
-        })).filter(tick => !isNaN(tick.quote)); // Filter out invalid prices
+            quote: parseFloat(price) || 0
+        }));
+        detectDecimalPlaces();
     } else if (data.tick?.quote) {
-        const quote = parseFloat(data.tick.quote);
-        if (!isNaN(quote)) {
-            tickHistory.push({ 
-                time: data.tick.epoch || Date.now(), 
-                quote: quote
-            });
-            if (tickHistory.length > 100) tickHistory.shift();
-        }
+        let tickQuote = parseFloat(data.tick.quote) || 0;
+        tickHistory.push({ 
+            time: data.tick.epoch || Date.now(), 
+            quote: tickQuote 
+        });
+        if (tickHistory.length > 100) tickHistory.shift();
     }
-    detectDecimalPlaces();
     updateUI();
 }
 
@@ -257,7 +293,7 @@ function requestProposal(contractType, symbol, stake) {
         amount: stake,
         basis: "stake",
         contract_type: contractType,
-        currency: "USD",
+        currency: clientStore.currency,
         duration: 1,
         duration_unit: "t",
         symbol: symbol,
@@ -267,28 +303,21 @@ function requestProposal(contractType, symbol, stake) {
     derivWs.send(JSON.stringify(request));
 }
 
-// Simplify placeTrades function
+// Modify the placeTrades function
 function placeTrades(stake, symbol) {
-    if (!derivWs) {
+    if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
         showNotification('WebSocket not connected', 'error');
         return;
     }
 
-    // Place single trade based on current price
-    const request = {
-        buy: 1,
-        parameters: {
-            amount: stake,
-            basis: "stake",
-            contract_type: "DIGITOVER",
-            currency: "USD",
-            duration: 1,
-            duration_unit: "t",
-            symbol: symbol
-        }
-    };
+    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
     
-    derivWs.send(JSON.stringify(request));
+    // Only request the appropriate trade based on current digit
+    if (currentDigit < 5) {
+        requestProposal("DIGITOVER", symbol, stake);
+    } else if (currentDigit > 4) {
+        requestProposal("DIGITUNDER", symbol, stake);
+    }
 }
 
 // Modify handleProposalResponse function
@@ -357,6 +386,17 @@ function subscribeToContract(contractId) {
     derivWs.send(JSON.stringify(request));
 }
 
+// Add balance subscription after auth
+function subscribeToBalance() {
+    if (derivWs && derivWs.readyState === WebSocket.OPEN) {
+        const request = {
+            balance: 1,
+            subscribe: 1
+        };
+        derivWs.send(JSON.stringify(request));
+    }
+}
+
 // Initialize WebSocket connection
 function requestTickHistory() {
     if (derivWs && derivWs.readyState === WebSocket.OPEN) {
@@ -382,56 +422,63 @@ function detectDecimalPlaces() {
 }
 
 function getLastDigit(price) {
-    if (!price) return 0;
-    const multiplier = Math.pow(10, decimalPlaces);
-    return Math.floor(Math.abs(price * multiplier) % 10);
+    let priceStr = price.toString();
+    let priceParts = priceStr.split(".");
+    let decimals = priceParts[1] || "";
+    while (decimals.length < decimalPlaces) decimals += "0";
+    return Number(decimals.slice(-1));
 }
 
+// Modify updateUI to show balance
 function updateUI() {
     const currentPrice = tickHistory[tickHistory.length - 1]?.quote.toFixed(decimalPlaces);
     document.getElementById("current-price").textContent = currentPrice || "N/A";
+    
+    // Add balance display
+    const balanceElement = document.getElementById("account-balance");
+    if (balanceElement) {
+        balanceElement.textContent = `Balance: ${clientStore.currency} ${Number(clientStore.balance).toFixed(2)}`;
+    }
+    
     updateDigitDisplay();
 }
 
 function updateDigitDisplay() {
-    if (!tickHistory.length) return;
-
     const digitCounts = new Array(10).fill(0);
-    let validTicks = 0;
-
     tickHistory.forEach(tick => {
         const lastDigit = getLastDigit(tick.quote);
-        if (lastDigit >= 0 && lastDigit <= 9) {
-            digitCounts[lastDigit]++;
-            validTicks++;
-        }
+        digitCounts[lastDigit]++;
     });
 
+    const digitPercentages = digitCounts.map(count => (count / tickHistory.length) * 100);
+    const maxPercentage = Math.max(...digitPercentages);
+    const minPercentage = Math.min(...digitPercentages);
+    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
+
     const container = document.getElementById("digit-display-container");
-    if (!container) return;
-    
     container.innerHTML = "";
 
-    const currentDigit = getLastDigit(tickHistory[tickHistory.length - 1]?.quote);
-    
-    digitCounts.forEach((count, digit) => {
-        const percentage = validTicks > 0 ? (count / validTicks * 100) : 0;
-        
+    digitPercentages.forEach((percentage, digit) => {
         const digitContainer = document.createElement("div");
         digitContainer.classList.add("digit-container");
-        
+
+        if (digit === currentDigit) {
+            digitContainer.classList.add("current");
+            const arrow = document.createElement("div");
+            arrow.classList.add("arrow");
+            digitContainer.appendChild(arrow);
+        }
+
         const digitBox = document.createElement("div");
         digitBox.classList.add("digit-box");
+        if (percentage === maxPercentage) digitBox.classList.add("highest");
+        if (percentage === minPercentage) digitBox.classList.add("lowest");
         digitBox.textContent = digit;
-        
-        if (digit === currentDigit) {
-            digitBox.classList.add("current");
-        }
-        
+
         const percentageText = document.createElement("div");
         percentageText.classList.add("digit-percentage");
-        percentageText.textContent = `${percentage.toFixed(1)}%`;
-        
+        percentageText.textContent = `${percentage.toFixed(2)}%`;
+
         digitContainer.appendChild(digitBox);
         digitContainer.appendChild(percentageText);
         container.appendChild(digitContainer);
@@ -529,16 +576,24 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
     }
 });
 
-// Add token refresh handling
+// Handle storage events for client-store sync
 window.addEventListener('storage', (e) => {
-    if (e.key === 'authToken') {
-        tradingToken = e.newValue;
-        if (!tradingToken) {
-            showNotification('Trading stopped - token expired', 'error');
+    if (e.key === 'active_loginid') {
+        const loginid = e.newValue;
+        if (loginid) {
+            clientStore.setLoginId(loginid);
+            startWebSocket(); // Reconnect with new credentials
+        } else {
+            clientStore.setIsLoggedIn(false);
+            showNotification('Logged out', 'info');
         }
     }
-    if (e.key === 'active_loginid') {
-        activeLoginId = e.newValue;
+    
+    if (e.key === 'accountsList') {
+        if (!e.newValue) {
+            clientStore.setIsLoggedIn(false);
+            showNotification('Session expired', 'error');
+        }
     }
 });
 
