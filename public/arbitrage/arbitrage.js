@@ -1,6 +1,7 @@
 let derivWs;
 let tradeWs; // New WebSocket for trading
-let tradingToken = localStorage.getItem('derivToken');
+let tradingToken = localStorage.getItem('authToken'); // Use standard authToken
+let activeLoginId = localStorage.getItem('active_loginid');
 let tickHistory = [];
 let currentSymbol = "R_100";
 let decimalPlaces = 2;
@@ -30,11 +31,10 @@ function initSurvicate() {
     if (initSurvicateCalled) return;
     initSurvicateCalled = true;
 
-    const active_loginid = localStorage.getItem('active_loginid');
     const client_accounts = JSON.parse(localStorage.getItem('accountsList')) || undefined;
 
-    if (active_loginid && client_accounts) {
-        const { residence, account_type, created_at } = client_accounts[active_loginid] || {};
+    if (activeLoginId && client_accounts) {
+        const { residence, account_type, created_at } = client_accounts[activeLoginId] || {};
         setSurvicateUserAttributes(residence, account_type, created_at);
     }
 }
@@ -52,10 +52,22 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+// Add token validation function
+function validateToken() {
+    if (!tradingToken) {
+        showNotification('No trading token found. Please log in.', 'error');
+        return false;
+    }
+    if (!activeLoginId) {
+        showNotification('No active account found. Please log in.', 'error');
+        return false;
+    }
+    return true;
+}
+
 // Add trading WebSocket initialization
 function initTradeWebSocket() {
-    if (!tradingToken) {
-        showNotification('Please login first to trade', 'error');
+    if (!validateToken()) {
         return false;
     }
 
@@ -395,14 +407,14 @@ document.getElementById('symbol').addEventListener('change', function(e) {
 // Modify the existing form submission handler
 document.getElementById('tradingForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    const stake = parseFloat(document.getElementById('stake').value);
-    const symbol = document.getElementById('symbol').value;
     
-    if (!tradingToken) {
-        showNotification('Please login to trade', 'error');
+    if (!validateToken()) {
         return;
     }
 
+    const stake = parseFloat(document.getElementById('stake').value);
+    const symbol = document.getElementById('symbol').value;
+    
     if (stake && symbol) {
         stakeAmount = stake;
         currentSymbol = symbol;
@@ -414,6 +426,20 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
         
         // Start websocket for analysis
         startWebSocket();
+    }
+});
+
+// Add token refresh handling
+window.addEventListener('storage', (e) => {
+    if (e.key === 'authToken') {
+        tradingToken = e.newValue;
+        if (!tradingToken && isTrading) {
+            isTrading = false;
+            showNotification('Trading stopped - token expired', 'error');
+        }
+    }
+    if (e.key === 'active_loginid') {
+        activeLoginId = e.newValue;
     }
 });
 
