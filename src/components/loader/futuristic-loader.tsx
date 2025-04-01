@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import './chunk-loader.scss';
+import './futuristic-loader.scss';
 
-export default function ChunkLoader({ message }: { message: string }) {
+type FuturisticLoaderProps = {
+    message?: string;
+};
+
+const FuturisticLoader: React.FC<FuturisticLoaderProps> = ({ message }) => {
     const [progress, setProgress] = useState(0);
     const MINIMUM_LOADING_TIME = 3000; // 3 seconds minimum
 
@@ -22,7 +26,7 @@ export default function ChunkLoader({ message }: { message: string }) {
     }, []);
 
     return (
-        <div className='chunk-loader'>
+        <div className='futuristic-loader'>
             <div className='loader-content'>
                 <h1 className='logo'>BINARY<span>FX</span></h1>
                 <div className='progress-bar'>
@@ -39,4 +43,6 @@ export default function ChunkLoader({ message }: { message: string }) {
             </div>
         </div>
     );
-}
+};
+
+export default FuturisticLoader;

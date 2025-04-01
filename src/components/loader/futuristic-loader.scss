@@ -1,0 +1,108 @@
+.futuristic-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+    overflow: hidden;
+
+    .loader-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+    }
+
+    .logo {
+        font-size: 4rem;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: 4px;
+        margin-bottom: 2rem;
+        text-shadow: 0 0 20px rgba(33, 150, 243, 0.5);
+
+        span {
+            color: #2196f3;
+        }
+    }
+
+    .progress-bar {
+        width: 300px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        margin: 2rem auto;
+        position: relative;
+        overflow: hidden;
+
+        .progress {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #2196f3, #00bcd4);
+            transition: width 0.3s ease;
+        }
+
+        .percentage {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            color: #2196f3;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+    }
+
+    .loader-message {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1.4rem;
+        margin: 1rem 0;
+    }
+
+    .welcome-message {
+        color: #fff;
+        font-size: 1.8rem;
+        font-weight: 300;
+        margin-top: 2rem;
+        opacity: 0;
+        animation: fadeIn 0.5s ease forwards 0.5s;
+    }
+
+    .background-effects {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #2196f3;
+            border-radius: 50%;
+            animation: float 8s infinite;
+
+            @for $i from 1 through 20 {
+                &:nth-child(#{$i}) {
+                    left: random(100) * 1%;
+                    top: random(100) * 1%;
+                    animation-delay: random(8000) * -1ms;
+                }
+            }
+        }
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float {
+    0% { transform: translate(0, 0); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translate(random(100) - 50px, random(100) - 50px); opacity: 0; }
+}

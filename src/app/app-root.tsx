@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import ErrorBoundary from '@/components/error-component/error-boundary';
 import ErrorComponent from '@/components/error-component/error-component';
-import ChunkLoader from '@/components/loader/chunk-loader';
+import FuturisticLoader from '@/components/loader/futuristic-loader';
 import TradingAssesmentModal from '@/components/trading-assesment-modal';
 import { api_base } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
@@ -10,10 +10,6 @@ import { localize } from '@deriv-com/translations';
 import './app-root.scss';
 
 const AppContent = lazy(() => import('./app-content'));
-
-const AppRootLoader = () => {
-    return <ChunkLoader message={localize('Initializing Deriv Bot...')} />;
-};
 
 const ErrorComponentWrapper = observer(() => {
     const { common } = useStore();
@@ -51,10 +47,10 @@ const AppRoot = () => {
         initializeApi();
     }, []);
 
-    if (!store || !is_api_initialized) return <AppRootLoader />;
+    if (!store || !is_api_initialized) return <FuturisticLoader message={localize('Initializing Binaryfx...')} />;
 
     return (
-        <Suspense fallback={<AppRootLoader />}>
+        <Suspense fallback={<FuturisticLoader message={localize('Initializing Binaryfx...')} />}>
             <ErrorBoundary root_store={store}>
                 <ErrorComponentWrapper />
                 <AppContent />

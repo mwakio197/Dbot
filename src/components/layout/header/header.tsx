@@ -79,35 +79,20 @@ const InfoIcon = () => {
                 className="info-icon"
                 onClick={() => setShowModal(true)}
             >
-                <svg width="32" height="32" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    {/* Main circle background */}
-                    <circle cx="32" cy="32" r="30" fill="url(#socialGradient)"/>
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Base circle */}
+                    <circle cx="16" cy="16" r="16" fill="url(#chatGradient)" />
                     
-                    {/* Decorative rings */}
-                    <circle cx="32" cy="32" r="24" stroke="#FFF" strokeWidth="2" strokeDasharray="4 4"/>
-                    <circle cx="32" cy="32" r="18" fill="rgba(255,255,255,0.1)"/>
-                    
-                    {/* Connect dots pattern */}
-                    <circle cx="32" cy="20" r="3" fill="#FFD700"/>
-                    <circle cx="44" cy="32" r="3" fill="#4CAF50"/>
-                    <circle cx="32" cy="44" r="3" fill="#FF5722"/>
-                    <circle cx="20" cy="32" r="3" fill="#2196F3"/>
-                    
-                    {/* Connection lines */}
-                    <path d="M32 23L44 32" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
-                    <path d="M44 32L32 44" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
-                    <path d="M32 44L20 32" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
-                    <path d="M20 32L32 20" stroke="rgba(255,255,255,0.6)" strokeWidth="1"/>
-                    
-                    {/* Center hub */}
-                    <circle cx="32" cy="32" r="6" fill="white"/>
-                    <circle cx="32" cy="32" r="4" fill="#E91E63"/>
+                    {/* Message bubble */}
+                    <path 
+                        d="M24 12C24 8.7 20.87 6 17 6H15C11.13 6 8 8.7 8 12C8 15.3 11.13 18 15 18H16V21L20 18C22.33 17.1 24 14.7 24 12Z" 
+                        fill="white"
+                    />
                     
                     {/* Gradient definition */}
                     <defs>
-                        <linearGradient id="socialGradient" x1="0" y1="0" x2="64" y2="64">
+                        <linearGradient id="chatGradient" x1="0" y1="0" x2="32" y2="32">
                             <stop offset="0%" stopColor="#6b48ff"/>
-                            <stop offset="50%" stopColor="#5c27fe"/>
                             <stop offset="100%" stopColor="#3311bb"/>
                         </linearGradient>
                     </defs>
@@ -219,7 +204,7 @@ const AppHeader = observer(() => {
                     <Button
                         tertiary
                         onClick={() => {
-                            window.location.replace('https://oauth.deriv.com/oauth2/authorize?app_id=69811&l=EN&brand=derivlite');
+                            window.location.replace('https://oauth.deriv.com/oauth2/authorize?app_id=68848&l=EN&brand=derivlite');
                         }}
                     >
                         <Localize i18n_default_text='Log in' />
