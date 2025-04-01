@@ -129,14 +129,24 @@ function startWebSocket() {
 
 // Helper functions to handle different message types
 function handleProfitTableResponse(profit_table) {
+    if (!profit_table?.transactions || !Array.isArray(profit_table.transactions)) {
+        console.error('Invalid profit table response:', profit_table);
+        return;
+    }
+
     const trades = profit_table.transactions;
-    tradeResults = trades.map(trade => ({
-        time: new Date(trade.purchase_time * 1000).toLocaleTimeString(),
-        digit: trade.entry_tick_display_value.slice(-1),
-        isWin: trade.profit >= 0,
-        type: trade.shortcode.includes('DIGIT OVER') ? 'OVER_5' : 'UNDER_4',
-        profit: trade.profit
-    }));
+    tradeResults = trades.map(trade => {
+        // Add null checks for each property
+        if (!trade) return null;
+
+        return {
+            time: trade.purchase_time ? new Date(trade.purchase_time * 1000).toLocaleTimeString() : 'Unknown',
+            digit: trade.entry_tick_display_value ? trade.entry_tick_display_value.slice(-1) : '?',
+            isWin: typeof trade.profit === 'number' ? trade.profit >= 0 : false,
+            type: trade.shortcode ? (trade.shortcode.includes('DIGIT OVER') ? 'OVER_5' : 'UNDER_4') : 'Unknown',
+            profit: trade.profit || 0
+        };
+    }).filter(Boolean); // Remove any null entries
     
     totalWins = tradeResults.filter(t => t.isWin).length;
     totalLosses = tradeResults.filter(t => !t.isWin).length;
@@ -145,12 +155,17 @@ function handleProfitTableResponse(profit_table) {
 }
 
 function handleBuyResponse(buy) {
+    if (!buy?.contract_id) {
+        console.error('Invalid buy response:', buy);
+        return;
+    }
+
     const contractId = buy.contract_id;
-    const contractType = buy.contract_type;
+    const contractType = buy.contract_type || 'Unknown';
     activeContracts.set(contractId, {
         type: contractType,
         openTime: new Date(),
-        stake: buy.buy_price
+        stake: buy.buy_price || 0
     });
     
     subscribeToContract(contractId);
@@ -158,13 +173,21 @@ function handleBuyResponse(buy) {
 }
 
 function handleContractUpdate(contract) {
+    if (!contract?.contract_id) {
+        console.error('Invalid contract update:', contract);
+        return;
+    }
+
     if (contract.is_sold) {
-        const profit = contract.profit;
+        const profit = contract.profit || 0;
         const contractId = contract.contract_id;
         const contractData = activeContracts.get(contractId);
         
         if (contractData) {
-            updateTradeResults(contract.exit_tick_display_value.slice(-1), profit >= 0, {
+            const exitDigit = contract.exit_tick_display_value ? 
+                contract.exit_tick_display_value.slice(-1) : '?';
+
+            updateTradeResults(exitDigit, profit >= 0, {
                 contractId,
                 profit,
                 type: contractData.type,
@@ -176,15 +199,18 @@ function handleContractUpdate(contract) {
 }
 
 function handleTickData(data) {
-    if (data.history) {
+    if (data.history && Array.isArray(data.history.prices)) {
         tickHistory = data.history.prices.map((price, index) => ({
-            time: data.history.times[index],
-            quote: parseFloat(price)
+            time: data.history.times?.[index] || Date.now(),
+            quote: parseFloat(price) || 0
         }));
         detectDecimalPlaces();
-    } else if (data.tick) {
-        let tickQuote = parseFloat(data.tick.quote);
-        tickHistory.push({ time: data.tick.epoch, quote: tickQuote });
+    } else if (data.tick?.quote) {
+        let tickQuote = parseFloat(data.tick.quote) || 0;
+        tickHistory.push({ 
+            time: data.tick.epoch || Date.now(), 
+            quote: tickQuote 
+        });
         if (tickHistory.length > 100) tickHistory.shift();
     }
     updateUI();
