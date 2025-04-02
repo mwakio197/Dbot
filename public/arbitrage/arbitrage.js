@@ -21,51 +21,129 @@ let pendingProposals = {
     DIGITUNDER: null
 };
 
-// Add storage fallback and error handling
+// Add contract subscription tracking
+let subscribedContracts = new Set(); // Track contract subscriptions
+
+// Add at top with other variables
+let activeContractPairs = new Map(); // Track pairs of contracts
+let totalProfit = 0;
+let consecutiveLosses = 0;
+const MAX_CONSECUTIVE_LOSSES = 3;
+const PROFIT_TARGET = 50; // $50 profit target
+
+// Replace storage object with read-only version
 const storage = {
     get(key) {
         try {
             return localStorage.getItem(key);
         } catch (e) {
-            console.warn('Storage access failed, falling back to memory storage');
-            return this.memoryStore[key];
+            console.warn('Storage access failed:', e);
+            return null;
         }
-    },
-    set(key, value) {
-        try {
-            localStorage.setItem(key, value);
-        } catch (e) {
-            console.warn('Storage access failed, falling back to memory storage');
-            this.memoryStore[key] = value;
-        }
-    },
-    remove(key) {
-        try {
-            localStorage.removeItem(key);
-        } catch (e) {
-            console.warn('Storage access failed, falling back to memory storage');
-            delete this.memoryStore[key];
-        }
-    },
-    memoryStore: {}
+    }
 };
 
-// Update client store with active account handling
+// Update token manager to handle active account token
+const tokenManager = {
+    storage: localStorage,
+    
+    getActiveToken() {
+        const active_loginid = this.getActiveLoginId();
+        const accountsList = JSON.parse(this.storage.getItem('accountsList') || '{}');
+        return accountsList[active_loginid] || null;
+    },
+
+    getActiveLoginId() {
+        const token = this.storage.getItem('authToken');
+        if (!token || token === 'null') return 'CR6360772';
+
+        const accountsList = JSON.parse(this.storage.getItem('accountsList') || '{}');
+        const activeLoginId = Object.keys(accountsList)
+            .find(key => accountsList[key] === token);
+
+        return activeLoginId || 'CR6360772';
+    },
+
+    getAccounts() {
+        try {
+            const accountsList = this.storage.getItem('accountsList');
+            if (!accountsList) {
+                return this.getDefaultAccounts();
+            }
+
+            const parsedAccounts = JSON.parse(accountsList);
+            if (!parsedAccounts) {
+                return this.getDefaultAccounts();
+            }
+
+            // Convert token format to full account objects
+            return Object.entries(parsedAccounts).reduce((acc, [loginid, token]) => {
+                acc[loginid] = {
+                    token,
+                    currency: 'USD',
+                    loginid,
+                    accountType: loginid.startsWith('VRTC') ? 'virtual' : 'real'
+                };
+                return acc;
+            }, {});
+        } catch (error) {
+            console.warn('Error parsing accounts:', error);
+            return this.getDefaultAccounts();
+        }
+    },
+
+    getDefaultAccounts() {
+        return {
+            CR6360772: {
+                token: "a1-1oLpIRm48jSZ0EGphJ27HwZwnkA9a",
+                currency: 'USD',
+                loginid: 'CR6360772',
+                accountType: 'real'
+            },
+            VRTC9432913: {
+                token: "a1-ltbv1sQMdv9O4LKESPexp7hIwrqRf",
+                currency: 'USD',
+                loginid: 'VRTC9432913',
+                accountType: 'virtual'
+            }
+        };
+    },
+
+    getTokenInfo() {
+        const active_loginid = this.getActiveLoginId();
+        const client_accounts = JSON.parse(this.storage.getItem('accountsList')) || {};
+        return {
+            token: client_accounts[active_loginid] || null,
+            account_id: active_loginid
+        };
+    },
+
+    callIntercom(token) {
+        if (typeof window.useIntercom === 'function') {
+            window.useIntercom(token);
+        }
+    }
+};
+
+// Update clientStore token handling
 let clientStore = {
     loginid: '',
     is_logged_in: false,
     accounts: {},
-    currency: 'USD',
+    currency: 'USD', // Default currency
     balance: '0',
+    accountType: '', // Add account type
     getToken() {
         try {
-            const accounts = JSON.parse(storage.get('accountsList') || '{}');
-            const token = accounts[this.loginid]?.token;
-            console.log('Getting token for:', this.loginid, !!token);
-            return token || '';
+            const { token } = tokenManager.getTokenInfo();
+            if (!token) {
+                console.warn('No active token found');
+                return null;
+            }
+            return token;
         } catch (error) {
             console.error('Error getting token:', error);
-            return '';
+            return null;
         }
     },
     setLoginId(loginid) {
@@ -78,38 +156,52 @@ let clientStore = {
         this.balance = balance;
     },
     setCurrency(currency) {
-        this.currency = currency;
+        this.currency = 'USD'; // Always set to USD
     },
-    validateToken() {
-        if (!this.is_logged_in) {
-            showNotification('Please log in to trade', 'error');
+    async validateToken() {
+        try {
+            const token = this.getToken();
+            
+            if (!token) {
+                showNotification('Please log in to continue', 'error');
+                return false;
+            }
+
+            const { authorize, error } = await auth.authorize(token);
+            if (error || !authorize) {
+                showNotification(error?.message || 'Token validation failed', 'error');
+                return false;
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Token validation error:', error);
             return false;
         }
-        const token = this.getToken();
-        if (!token) {
-            showNotification('No trading token found. Please log in.', 'error');
-            return false;
-        }
-        return true;
     },
     getActiveAccount() {
         try {
-            const active_loginid = storage.get('active_loginid');
-            const accounts = JSON.parse(storage.get('accountsList') || '{}');
+            const active_loginid = tokenManager.getActiveLoginId();
+            const accounts = tokenManager.getAccounts();
             const account = accounts[active_loginid];
             
-            if (!account) return null;
+            if (!account) {
+                console.warn('No active account found, defaulting to CR account');
+                return accounts['CR6360772'];
+            }
 
             // Update store state with active account info
             this.loginid = active_loginid;
-            this.currency = account.currency;
+            this.currency = 'USD';
             this.is_logged_in = true;
             this.balance = account.balance || '0';
+            this.accountType = account.accountType;
             
             console.log('Active account:', {
                 loginid: this.loginid,
                 currency: this.currency,
-                is_logged_in: this.is_logged_in
+                is_logged_in: this.is_logged_in,
+                accountType: this.accountType
             });
             
             return account;
@@ -128,23 +220,15 @@ let clientStore = {
     }
 };
 
-// Add after client store declaration
+// Update tradeStore to be read-only
 const tradeStore = {
     getHistory() {
-        return JSON.parse(storage.get('tradeHistory') || '[]');
-    },
-    saveHistory(trades) {
-        storage.set('tradeHistory', JSON.stringify(trades));
-    },
-    addTrade(trade) {
-        const history = this.getHistory();
-        history.unshift(trade);
-        if (history.length > 100) history.pop(); // Keep last 100 trades
-        this.saveHistory(history);
-        return history;
-    },
-    clearHistory() {
-        storage.set('tradeHistory', '[]');
+        try {
+            return JSON.parse(storage.get('tradeHistory') || '[]');
+        } catch (error) {
+            console.warn('Error getting trade history:', error);
+            return [];
+        }
     }
 };
 
@@ -163,7 +247,7 @@ function initSurvicate() {
     if (initSurvicateCalled) return;
     initSurvicateCalled = true;
 
-    const client_accounts = JSON.parse(storage.get('accountsList')) || undefined;
+    const client_accounts = tokenManager.getAccounts();
 
     if (clientStore.loginid && client_accounts) {
         const { residence, account_type, created_at } = client_accounts[clientStore.loginid] || {};
@@ -190,68 +274,182 @@ function validateToken() {
 }
 
 // Update these constants at the top of the file
-const APP_ID = '70827'; // Official Deriv app ID
+const APP_CONFIG = {
+    local: '36300', // Local/test app ID
+    staging: '68848', // Staging environment
+    production: '68848' // Production app ID
+};
+
+// Helper to get appropriate app ID based on environment
+function getAppId() {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+        return APP_CONFIG.local;
+    }
+    // Add staging check if needed
+    // if (host.includes('staging')) return APP_CONFIG.staging;
+    return APP_CONFIG.production;
+}
+
+// Replace the static APP_ID constant
+const APP_ID = getAppId();
+
 const OAUTH_URL = 'https://oauth.deriv.com/oauth2/authorize';
 const WS_URL = 'wss://ws.binaryws.com/websockets/v3';
 
-// Add at the top after initial variables
+// Update auth helper
 const auth = {
-    getLoginId() {
-        const login_id = localStorage.getItem('active_loginid');
-        if (login_id && login_id !== 'null') return login_id;
-        return null;
-    },
-
-    getActiveToken() {
-        const token = localStorage.getItem('authToken');
-        if (token && token !== 'null') return token;
-        return null;
-    },
-
-    getActiveClientId() {
-        const token = this.getActiveToken();
-        if (!token) return null;
+    ws: null,
+    connecting: false,
+    
+    async connect() {
+        if (this.connecting) return;
+        if (this.ws?.readyState === WebSocket.OPEN) return;
         
-        const account_list = JSON.parse(localStorage.getItem('accountsList'));
-        if (account_list && account_list !== 'null') {
-            const active_clientId = Object.keys(account_list).find(key => account_list[key] === token);
-            return active_clientId;
+        this.connecting = true;
+        try {
+            this.ws = new WebSocket(`${WS_URL}?app_id=${APP_ID}`);
+            await new Promise((resolve, reject) => {
+                this.ws.onopen = resolve;
+                this.ws.onerror = reject;
+            });
+        } finally {
+            this.connecting = false;
         }
-        return null;
     },
 
-    getToken() {
-        const active_loginid = this.getLoginId();
-        const client_accounts = JSON.parse(localStorage.getItem('accountsList')) ?? undefined;
-        const active_account = (client_accounts && client_accounts[active_loginid]) || {};
-        return {
-            token: active_account ?? undefined,
-            account_id: active_loginid ?? undefined,
-        };
+    async authorize(token) {
+        if (!token) return { authorize: null, error: 'No token provided' };
+        
+        try {
+            await this.connect();
+            const response = await new Promise(resolve => {
+                const timeoutId = setTimeout(() => {
+                    resolve({ authorize: null, error: 'Authorization timeout' });
+                }, 10000);
+
+                const handleMessage = (msg) => {
+                    clearTimeout(timeoutId);
+                    const data = JSON.parse(msg.data);
+                    this.ws.removeEventListener('message', handleMessage);
+                    resolve(data);
+                };
+
+                this.ws.addEventListener('message', handleMessage);
+                this.ws.send(JSON.stringify({ authorize: token }));
+            });
+
+            return response;
+        } catch (error) {
+            return { authorize: null, error };
+        }
+    },
+
+    cleanup() {
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
     }
 };
 
-// Replace startWebSocket function
-function startWebSocket() {
-    if (derivWs) {
-        derivWs.close();
-        tickHistory = [];
-    }
+// Add WebSocket manager implementation
+const wsManager = {
+    attempts: 0,
+    maxAttempts: 5,
+    baseDelay: 1000,
+    maxDelay: 16000,
 
-    const { token } = auth.getToken();
-    if (!token) {
-        console.error('No valid token found');
+    resetAttempts() {
+        this.attempts = 0;
+    },
+
+    getDelay() {
+        // Exponential backoff with max delay
+        return Math.min(this.baseDelay * Math.pow(2, this.attempts), this.maxDelay);
+    },
+
+    reconnect() {
+        if (this.attempts >= this.maxAttempts) {
+            showNotification('Max reconnection attempts reached. Please refresh.', 'error');
+            return;
+        }
+
+        const delay = this.getDelay();
+        this.attempts++;
+
+        showNotification(`Reconnecting in ${delay/1000} seconds... (Attempt ${this.attempts})`, 'warning');
+        
+        setTimeout(() => {
+            startWebSocket()
+                .then(() => {
+                    this.resetAttempts();
+                    showNotification('Successfully reconnected!', 'success');
+                })
+                .catch(() => {
+                    if (this.attempts < this.maxAttempts) {
+                        this.reconnect();
+                    }
+                });
+        }, delay);
+    }
+};
+
+// Update WebSocket initialization
+async function startWebSocket() {
+    if (derivWs?.readyState === WebSocket.OPEN) {
         return;
     }
 
-    derivWs = new WebSocket(`${WS_URL}?app_id=${APP_ID}`);
-    
-    derivWs.onopen = function() {
-        console.log('WebSocket connected, authorizing...');
-        derivWs.send(JSON.stringify({ authorize: token }));
+    return new Promise((resolve, reject) => {
+        try {
+            derivWs = new WebSocket(`${WS_URL}?app_id=${APP_ID}`);
+
+            const timeoutId = setTimeout(() => {
+                reject(new Error('WebSocket connection timeout'));
+            }, 10000);
+
+            derivWs.onopen = () => {
+                clearTimeout(timeoutId);
+                console.log('Trading WebSocket connected');
+                initializeWebSocket();
+                
+                // Authenticate immediately if token exists
+                const token = clientStore.getToken();
+                if (token) {
+                    derivWs.send(JSON.stringify({ authorize: token }));
+                }
+                
+                resolve();
+            };
+
+            derivWs.onerror = (error) => {
+                clearTimeout(timeoutId);
+                console.error('WebSocket connection failed:', error);
+                reject(error);
+            };
+
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+// Add WebSocket initialization function
+function initializeWebSocket() {
+    if (!derivWs) return;
+
+    derivWs.onopen = () => {
+        console.log('WebSocket connected');
+        updateConnectionStatus(true);
+        wsManager.resetAttempts();
+        const token = clientStore.getToken();
+        if (token) {
+            derivWs.send(JSON.stringify({ authorize: token }));
+        }
     };
 
-    derivWs.onmessage = function(event) {
+    derivWs.onmessage = (event) => {
         const data = JSON.parse(event.data);
         
         if (data.error) {
@@ -259,7 +457,6 @@ function startWebSocket() {
             return;
         }
 
-        // Handle authorization response with balance
         if (data.authorize) {
             clientStore.setLoginId(data.authorize.loginid);
             clientStore.setIsLoggedIn(true);
@@ -270,190 +467,204 @@ function startWebSocket() {
             return;
         }
 
-        // Handle balance updates
         if (data.balance) {
             clientStore.setBalance(data.balance.balance);
             updateUI();
             return;
         }
 
-        // Handle profit table response
-        if (data.profit_table) {
-            handleProfitTableResponse(data.profit_table);
-            return;
-        }
+        if (data.profit_table) handleProfitTableResponse(data.profit_table);
+        if (data.buy) handleBuyResponse(data.buy);
+        if (data.proposal_open_contract) handleContractUpdate(data.proposal_open_contract);
+        if (data.proposal) handleProposalResponse(data.proposal);
+    };
 
-        // Handle buy response
-        if (data.buy) {
-            handleBuyResponse(data.buy);
-            return;
-        }
-
-        // Handle contract updates
-        if (data.proposal_open_contract) {
-            handleContractUpdate(data.proposal_open_contract);
-            return;
-        }
-
-        // Handle proposal response
-        if (data.proposal) {
-            handleProposalResponse(data.proposal);
-            return;
+    derivWs.onclose = (event) => {
+        console.log('WebSocket disconnected', event.code);
+        updateConnectionStatus(false);
+        if (!event.wasClean) {
+            wsManager.reconnect();
         }
     };
 
-    derivWs.onclose = function() {
-        console.log('WebSocket disconnected');
+    derivWs.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        updateConnectionStatus(false);
+    };
+}
+
+// Add WebSocket initialization functions at the top level
+function updateConnectionStatus(connected) {
+    const statusElement = document.getElementById('ws-status');
+    if (statusElement) {
+        statusElement.classList.toggle('connected', connected);
+        statusElement.style.backgroundColor = connected ? '#4CAF50' : '#f44336'; // Green when connected, Red when disconnected
+        statusElement.title = connected ? 'Connected' : 'Disconnected';
+    }
+}
+
+// Update WebSocket constants
+const WS_RECONNECT_DELAY = 500;
+const WS_MAX_RECONNECT_DELAY = 30000;
+
+// Update tick WebSocket handling
+function startTickAnalysis(symbol = 'R_100') {
+    return new Promise((resolve, reject) => {
+        if (tickWs?.readyState === WebSocket.OPEN) {
+            tickWs.close();
+        }
+
+        try {
+            tickWs = new WebSocket(`${WS_URL}?app_id=${APP_ID}`);
+            
+            const timeoutId = setTimeout(() => {
+                reject(new Error('Tick WebSocket connection timeout'));
+            }, 10000);
+
+            tickWs.onopen = () => {
+                clearTimeout(timeoutId);
+                console.log('Tick WebSocket connected');
+                subscribeTicks(symbol);
+                resolve();
+            };
+
+            tickWs.onclose = (event) => {
+                console.log('Tick WebSocket closed:', event.code);
+                if (!event.wasClean) {
+                    reject(new Error('Tick WebSocket closed unexpectedly'));
+                }
+            };
+
+            tickWs.onerror = (error) => {
+                console.error('Tick WebSocket error:', error);
+                reject(error);
+            };
+
+            tickWs.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    processTickData(data);
+                } catch (error) {
+                    console.error('Error processing tick data:', error);
+                }
+            };
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+function subscribeTicks(symbol) {
+    if (!tickWs || tickWs.readyState !== WebSocket.OPEN) return;
+
+    // First get history
+    const historyRequest = {
+        ticks_history: symbol,
+        adjust_start_time: 1,
+        count: 100,
+        end: "latest",
+        start: Math.floor(Date.now() / 1000) - 3600, // Last hour
+        style: "ticks"
     };
     
-    derivWs.onerror = function(error) {
-        console.error('WebSocket error:', error);
+    // Then subscribe to ongoing ticks
+    const tickRequest = {
+        ticks: symbol,
+        subscribe: 1
     };
 
-    // Update storage event listener for account changes
-    window.addEventListener('storage', function(e) {
-        if (e.key === 'active_loginid') {
-            console.log('Account changed, reconnecting...');
-            const newAccount = clientStore.getActiveAccount();
-            if (newAccount) {
-                startWebSocket();
-                showNotification(`Switched to account: ${newAccount.loginid}`, 'info');
+    tickWs.send(JSON.stringify(historyRequest));
+    setTimeout(() => {
+        tickWs.send(JSON.stringify(tickRequest));
+    }, 500);
+}
+
+function processTickData(data) {
+    if (data.error) {
+        console.error('Tick data error:', data.error);
+        return;
+    }
+
+    // Handle history response
+    if (data.history) {
+        tickHistory = data.history.prices.map((price, index) => ({
+            time: data.history.times[index] * 1000, // Convert to milliseconds
+            quote: parseFloat(price),
+            digit: getLastDigit(price)
+        }));
+        detectDecimalPlaces();
+        updateDigitAnalysis();
+    }
+    
+    // Handle live tick updates
+    if (data.tick) {
+        const quote = parseFloat(data.tick.quote);
+        const tick = {
+            time: data.tick.epoch * 1000,
+            quote: quote,
+            digit: getLastDigit(quote)
+        };
+        
+        tickHistory.push(tick);
+        if (tickHistory.length > 100) tickHistory.shift();
+        updateDigitAnalysis();
+    }
+}
+
+function updateDigitAnalysis() {
+    if (!tickHistory.length) return;
+
+    const lastTick = tickHistory[tickHistory.length - 1];
+    
+    // Update current price display
+    const priceElement = document.getElementById("current-price");
+    if (priceElement) {
+        priceElement.textContent = lastTick.quote.toFixed(decimalPlaces);
+    }
+
+    // Calculate digit statistics
+    const digitStats = calculateDigitStats();
+    updateDigitDisplay(digitStats, lastTick.digit);
+}
+
+function calculateDigitStats() {
+    const stats = new Array(10).fill(0);
+    const recentTicks = tickHistory.slice(-30); // Analyze last 30 ticks
+
+    recentTicks.forEach(tick => {
+        if (tick && typeof tick.quote === 'number') {
+            const digit = getLastDigit(tick.quote);
+            if (digit >= 0 && digit <= 9) {
+                stats[digit]++;
             }
         }
     });
+
+    return stats.map(count => ({
+        count,
+        percentage: (count / recentTicks.length) * 100
+    }));
 }
 
-// Add websocket for ticks only
-function startTickAnalysis(symbol = 'R_100') {
-    if (tickWs) {
-        tickWs.close();
-    }
+function updateDigitDisplay(digitStats, currentDigit) {
+    const container = document.getElementById("digit-display-container");
+    if (!container) return;
 
-    tickWs = new WebSocket(`${WS_URL}?app_id=${APP_ID}`);
-    
-    tickWs.onopen = function() {
-        console.log('Tick WebSocket connected');
-        // Subscribe to tick history
-        const request = {
-            ticks_history: symbol,
-            count: 100,
-            end: "latest",
-            style: "ticks",
-            subscribe: 1
-        };
-        tickWs.send(JSON.stringify(request));
-    };
+    const maxCount = Math.max(...digitStats.map(s => s.count));
+    const minCount = Math.min(...digitStats.map(s => s.count));
 
-    tickWs.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        
-        // Handle tick data without requiring auth
-        if (data.history || data.tick) {
-            handleTickData(data);
-        }
-    };
-
-    tickWs.onclose = function() {
-        console.log('Tick WebSocket disconnected');
-    };
-}
-
-// Helper functions to handle different message types
-function handleProfitTableResponse(profit_table) {
-    if (!profit_table?.transactions || !Array.isArray(profit_table.transactions)) {
-        console.error('Invalid profit table response:', profit_table);
-        return;
-    }
-
-    // Convert historical trades to our format and save to storage
-    const trades = profit_table.transactions.map(trade => {
-        if (!trade) return null;
-
-        const profit = typeof trade.profit === 'number' ? trade.profit : 0;
-        
-        return {
-            time: trade.purchase_time ? new Date(trade.purchase_time * 1000).toLocaleTimeString() : 'Unknown',
-            digit: trade.entry_tick_display_value ? trade.entry_tick_display_value.slice(-1) : '?',
-            isWin: profit >= 0,
-            type: trade.shortcode ? (trade.shortcode.includes('DIGIT OVER') ? 'OVER_5' : 'UNDER_4') : 'Unknown',
-            profit: profit,
-            contractId: trade.contract_id || 'Unknown',
-            timestamp: trade.purchase_time ? trade.purchase_time * 1000 : Date.now()
-        };
-    }).filter(Boolean);
-    
-    // Save historical trades
-    tradeStore.saveHistory(trades);
-    
-    // Update local variables
-    tradeResults = tradeStore.getHistory();
-    totalWins = tradeResults.filter(t => t.isWin).length;
-    totalLosses = tradeResults.filter(t => !t.isWin).length;
-    
-    updateResultsDisplay();
-}
-
-function handleBuyResponse(buy) {
-    if (!buy?.contract_id) {
-        console.error('Invalid buy response:', buy);
-        return;
-    }
-
-    const contractId = buy.contract_id;
-    const contractType = buy.contract_type || 'Unknown';
-    activeContracts.set(contractId, {
-        type: contractType,
-        openTime: new Date(),
-        stake: buy.buy_price || 0
-    });
-    
-    subscribeToContract(contractId);
-    showNotification(`${contractType} contract opened: ${contractId}`, 'success');
-}
-
-function handleContractUpdate(contract) {
-    if (!contract?.contract_id) {
-        console.error('Invalid contract update:', contract);
-        return;
-    }
-
-    if (contract.is_sold) {
-        const profit = contract.profit || 0;
-        const contractId = contract.contract_id;
-        const contractData = activeContracts.get(contractId);
-        
-        if (contractData) {
-            const exitDigit = contract.exit_tick_display_value ? 
-                contract.exit_tick_display_value.slice(-1) : '?';
-
-            updateTradeResults(exitDigit, profit >= 0, {
-                contractId,
-                profit,
-                type: contractData.type,
-                duration: (new Date() - contractData.openTime) / 1000
-            });
-            activeContracts.delete(contractId);
-        }
-    }
-}
-
-// Modify handleTickData to be auth-independent
-function handleTickData(data) {
-    if (data.history && Array.isArray(data.history.prices)) {
-        tickHistory = data.history.prices.map((price, index) => ({
-            time: data.history.times?.[index] || Date.now(),
-            quote: parseFloat(price) || 0
-        }));
-        detectDecimalPlaces();
-    } else if (data.tick?.quote) {
-        let tickQuote = parseFloat(data.tick.quote) || 0;
-        tickHistory.push({ 
-            time: data.tick.epoch || Date.now(), 
-            quote: tickQuote 
-        });
-        if (tickHistory.length > 100) tickHistory.shift();
-    }
-    updateDigitAnalysis();
+    container.innerHTML = digitStats.map((stat, digit) => `
+        <div class="digit-container ${digit === currentDigit ? 'current' : ''}">
+            <div class="digit-box ${stat.count === maxCount ? 'highest' : ''} 
+                               ${stat.count === minCount ? 'lowest' : ''}">
+                ${digit}
+            </div>
+            <div class="digit-percentage">
+                ${stat.percentage.toFixed(1)}%
+            </div>
+            ${digit === currentDigit ? '<div class="arrow"></div>' : ''}
+        </div>
+    `).join('');
 }
 
 // Add after WebSocket initialization
@@ -472,46 +683,51 @@ function requestTradeHistory() {
     derivWs.send(JSON.stringify(request));
 }
 
-// Add new function to request trade proposal
+// Update requestProposal function
 function requestProposal(contractType, symbol, stake) {
+    if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
+        wsManager.reconnect();
+        return;
+    }
+
+    const halfStake = stake / 2; // Split stake in half
+
     const request = {
         proposal: 1,
         subscribe: 1,
-        amount: stake,
+        amount: halfStake, // Use half stake
         basis: "stake",
         contract_type: contractType,
-        currency: clientStore.currency,
+        currency: "USD",
         duration: 1,
         duration_unit: "t",
         symbol: symbol,
-        barrier: contractType === "DIGITOVER" ? "5" : "4"
+        barrier: "4"
     };
     
     derivWs.send(JSON.stringify(request));
 }
 
-// Modify placeTrades to execute trade immediately
+// Update placeTrades function parameters
 function placeTrades(stake, symbol) {
     if (!derivWs || derivWs.readyState !== WebSocket.OPEN) {
-        showNotification('WebSocket not connected', 'error');
+        showNotification('Reconnecting before placing trades...', 'warning');
+        wsManager.reconnect();
         return;
     }
 
-    const activeAccount = clientStore.getActiveAccount();
-    if (!activeAccount) {
-        showNotification('No active account found', 'error');
-        return;
-    }
+    const halfStake = stake / 2; // Split stake in half
 
-    const request = {
+    // Place DIGITOVER trade at 4
+    const overRequest = {
         buy: 1,
         subscribe: 1,
-        price: stake,
+        price: halfStake, // Use half stake
         parameters: {
-            amount: stake,
+            amount: halfStake, // Use half stake
             basis: "stake",
             contract_type: "DIGITOVER",
-            currency: activeAccount.currency,
+            currency: "USD",
             duration: 1,
             duration_unit: "t",
             symbol: symbol,
@@ -519,34 +735,154 @@ function placeTrades(stake, symbol) {
         }
     };
 
-    derivWs.send(JSON.stringify(request));
-    showNotification('Placing DIGITOVER trade...', 'info');
+    // Place DIGITUNDER trade at 4
+    const underRequest = {
+        buy: 1,
+        subscribe: 1,
+        price: halfStake, // Use half stake
+        parameters: {
+            amount: halfStake, // Use half stake
+            basis: "stake",
+            contract_type: "DIGITUNDER",
+            currency: "USD",
+            duration: 1,
+            duration_unit: "t",
+            symbol: symbol,
+            barrier: "5"
+        }
+    };
+
+    derivWs.send(JSON.stringify(overRequest));
+    derivWs.send(JSON.stringify(underRequest));
+    showNotification(`Placing trades with $${halfStake.toFixed(2)} each...`, 'info');
 }
 
-// Modify handleProposalResponse to execute single trade
+// Update handleTradeExecution for fixed barrier
+function handleTradeExecution(signal) {
+    if (!isRunning) return;
+
+    const stake = parseFloat(document.getElementById('stake').value) || 1;
+
+    const overRequest = {
+        proposal: 1,
+        subscribe: 1,
+        amount: stake,
+        basis: "stake",
+        contract_type: "DIGITOVER",
+        currency: "USD",
+        duration: 1,
+        duration_unit: "t",
+        symbol: currentSymbol,
+        barrier: "5"  // Fixed at 5
+    };
+
+    const underRequest = {
+        proposal: 1,
+        subscribe: 1,
+        amount: stake,
+        basis: "stake",
+        contract_type: "DIGITUNDER",
+        currency: "USD",
+        duration: 1,
+        duration_unit: "t",
+        symbol: currentSymbol,
+        barrier: "5"  // Fixed at 4
+    };
+
+    derivWs.send(JSON.stringify(overRequest));
+    derivWs.send(JSON.stringify(underRequest));
+}
+
+// Update handleProposalResponse to track more trade details
 function handleProposalResponse(proposal) {
     if (!proposal?.id || !proposal?.ask_price) return;
 
-    if (proposal.contract_type === "DIGITOVER") {
-        const buyRequest = {
-            buy: proposal.id,
-            price: proposal.ask_price
-        };
+    pendingProposals[proposal.contract_type] = {
+        id: proposal.id,
+        price: proposal.ask_price,
+        type: proposal.contract_type,
+        barrier: proposal.barrier,
+        timestamp: Date.now()
+    };
+
+    const buyRequest = {
+        buy: proposal.id,
+        price: proposal.ask_price
+    };
+
+    if (proposal.contract_type === "DIGITOVER" || proposal.contract_type === "DIGITUNDER") {
         derivWs.send(JSON.stringify(buyRequest));
-        showNotification('DIGITOVER trade executed', 'success');
+        showNotification(`Placing ${proposal.contract_type} trade at barrier ${proposal.barrier}`, 'info');
     }
 }
 
-// Replace cleanupTrades function
+// Update handleContractUpdate for better result tracking
+function handleContractUpdate(contract) {
+    if (!contract?.contract_id) return;
+
+    if (contract.status === "open") {
+        activeContracts.set(contract.contract_id, {
+            type: contract.contract_type,
+            entrySpot: contract.entry_spot,
+            barrier: contract.barrier,
+            buyPrice: contract.buy_price,
+            timestamp: Date.now()
+        });
+    }
+
+    if (contract.status === "won" || contract.status === "lost") {
+        const tradeData = activeContracts.get(contract.contract_id);
+        if (tradeData) {
+            const result = {
+                time: new Date().toLocaleTimeString(),
+                type: contract.contract_type,
+                digit: contract.exit_tick_display_value?.slice(-1) || 'N/A',
+                entrySpot: contract.entry_tick_display_value,
+                exitSpot: contract.exit_tick_display_value,
+                barrier: contract.barrier,
+                buyPrice: contract.buy_price,
+                payout: contract.payout,
+                profit: contract.profit,
+                isWin: contract.status === "won",
+                duration: ((contract.sell_time - contract.purchase_time) / 1000).toFixed(1),
+                contractId: contract.contract_id
+            };
+
+            tradeResults.unshift(result);
+            if (tradeResults.length > 50) tradeResults.pop();
+
+            if (result.isWin) {
+                totalWins++;
+                consecutiveLosses = 0;
+            } else {
+                totalLosses++;
+                consecutiveLosses++;
+            }
+
+            totalProfit += parseFloat(result.profit);
+            updateResultsDisplay();
+
+            // Check stop conditions
+            if (consecutiveLosses >= MAX_CONSECUTIVE_LOSSES) {
+                stopArbitrageBot();
+                showNotification(`Bot stopped: ${MAX_CONSECUTIVE_LOSSES} consecutive losses`, 'error');
+            } else if (totalProfit >= PROFIT_TARGET) {
+                stopArbitrageBot();
+                showNotification(`Target profit of $${PROFIT_TARGET} reached!`, 'success');
+            }
+
+            activeContracts.delete(contract.contract_id);
+        }
+    }
+}
+
+// Update cleanupTrades
 function cleanupTrades() {
-    // Clear trade history from storage
-    tradeStore.clearHistory();
-    
     // Reset local variables
     tradeResults = [];
     totalWins = 0;
     totalLosses = 0;
-    
+
     // Reset pending proposals
     pendingProposals = {
         DIGITOVER: null,
@@ -571,19 +907,34 @@ function cleanupTrades() {
         derivWs.send(JSON.stringify(request));
     });
     activeContracts.clear();
+
+    // Clear subscribed contracts
+    subscribedContracts.clear();
+
+    // Clear additional tracking
+    activeContractPairs.clear();
+    totalProfit = 0;
+    consecutiveLosses = 0;
 }
 
 // Modify beforeunload handler
 window.addEventListener('beforeunload', cleanupTrades);
 
-// Add contract subscription function
+// Update subscribeToContract function
 function subscribeToContract(contractId) {
+    // Check if already subscribed
+    if (subscribedContracts.has(contractId)) {
+        return;
+    }
+
     const request = {
         proposal_open_contract: 1,
         subscribe: 1,
         contract_id: contractId
     };
+
     derivWs.send(JSON.stringify(request));
+    subscribedContracts.add(contractId);
 }
 
 // Add balance subscription after auth
@@ -623,7 +974,7 @@ function detectDecimalPlaces() {
 
 function getLastDigit(price) {
     if (price === undefined || price === null) return 0;
-    
+
     try {
         let priceStr = price.toString();
         let priceParts = priceStr.split(".");
@@ -642,10 +993,10 @@ function updateDigitAnalysis() {
         const currentPrice = tickHistory[tickHistory.length - 1]?.quote;
         const priceElement = document.getElementById("current-price");
         if (priceElement) {
-            priceElement.textContent = currentPrice !== undefined ? 
+            priceElement.textContent = currentPrice !== undefined ?
                 currentPrice.toFixed(decimalPlaces) : "N/A";
         }
-        
+
         updateDigitDisplay();
     } catch (error) {
         console.error('Error updating digit analysis:', error);
@@ -658,7 +1009,7 @@ function updateUI() {
         if (balanceElement) {
             balanceElement.textContent = `Balance: ${clientStore.currency} ${Number(clientStore.balance).toFixed(2)}`;
         }
-        
+
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         if (startButton && stopButton) {
@@ -696,7 +1047,7 @@ function updateDigitDisplay() {
     const digitPercentages = digitCounts.map(count => total > 0 ? (count / total) * 100 : 0);
     const maxPercentage = Math.max(...digitPercentages);
     const minPercentage = Math.min(...digitPercentages);
-    
+
     const currentQuote = tickHistory[tickHistory.length - 1]?.quote;
     const currentDigit = currentQuote !== undefined ? getLastDigit(currentQuote) : null;
 
@@ -728,7 +1079,7 @@ function updateDigitDisplay() {
     });
 }
 
-// Replace updateTradeResults function
+// Update updateTradeResults to include more details
 function updateTradeResults(digit, isWin, contractDetails) {
     const result = {
         time: new Date().toLocaleTimeString(),
@@ -737,67 +1088,103 @@ function updateTradeResults(digit, isWin, contractDetails) {
         type: contractDetails.type,
         contractId: contractDetails.contractId,
         profit: contractDetails.profit,
+        entrySpot: contractDetails.entrySpot,
+        exitSpot: contractDetails.exitSpot,
+        barrier: contractDetails.barrier,
+        buyPrice: contractDetails.buyPrice,
+        payout: contractDetails.payout,
         duration: contractDetails.duration,
         timestamp: Date.now()
     };
-    
-    tradeResults = tradeStore.addTrade(result);
-    
-    // Update totals from stored history
-    const history = tradeStore.getHistory();
-    totalWins = history.filter(t => t.isWin).length;
-    totalLosses = history.filter(t => !t.isWin).length;
-    
+
+    tradeResults.unshift(result);
+    if (tradeResults.length > 100) tradeResults.pop();
+
+    totalWins = tradeResults.filter(t => t.isWin).length;
+    totalLosses = tradeResults.filter(t => !t.isWin).length;
+    totalProfit = tradeResults.reduce((sum, trade) => sum + (trade.profit || 0), 0);
+
     updateResultsDisplay();
 }
 
-// Simplify updateResultsDisplay
+// Update updateResultsDisplay for better visualization
 function updateResultsDisplay() {
-    const resultsContainer = document.getElementById('trade-results');
-    const statsContainer = document.getElementById('trade-stats');
-    
-    // Update stats
+    const container = document.querySelector('.results-card');
+    if (!container) return;
+
     const totalTrades = totalWins + totalLosses;
     const winRate = totalTrades > 0 ? ((totalWins / totalTrades) * 100).toFixed(1) : '0.0';
-    const totalProfit = tradeResults.reduce((sum, trade) => sum + (trade.profit || 0), 0).toFixed(2);
-    
-    statsContainer.innerHTML = `
-        <div>Win Rate: ${winRate}%</div>
-        <div>Profit: $${totalProfit}</div>
-    `;
-    
-    // Update results list with simplified display
-    resultsContainer.innerHTML = tradeResults.slice(0, 10).map(result => {
-        const profit = (result.profit || 0).toFixed(2);
-        return `
-            <div class="trade-result ${result.isWin ? 'win' : 'loss'}">
-                <span>${result.time || 'Unknown'}</span>
-                <span>${result.type || 'Unknown'}</span>
-                <span class="profit">$${profit}</span>
+
+    const statsHtml = `
+        <div class="trade-stats">
+            <div class="stat-item">
+                <div class="stat-label">Total Trades</div>
+                <div class="stat-value">${totalTrades}</div>
             </div>
-        `;
-    }).join('');
+            <div class="stat-item">
+                <div class="stat-label">Win/Loss</div>
+                <div class="stat-value">${totalWins}/${totalLosses}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-value ${parseFloat(winRate) >= 50 ? 'positive' : 'negative'}">${winRate}%</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Total Profit</div>
+                <div class="stat-value ${totalProfit >= 0 ? 'positive' : 'negative'}">$${totalProfit.toFixed(2)}</div>
+            </div>
+        </div>
+        <div class="trade-results">
+            ${tradeResults.map(result => `
+                <div class="trade-result ${result.isWin ? 'win' : 'loss'}">
+                    <div class="trade-details">
+                        <span>Exit: ${result.exitSpot}</span>
+                        <span>Stake: $${result.buyPrice.toFixed(2)}</span>
+                        <span>Payout: $${result.payout.toFixed(2)}</span>
+                    </div>
+                    <span class="trade-profit">
+                        ${result.profit >= 0 ? '+' : ''}$${parseFloat(result.profit).toFixed(2)}
+                    </span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    container.innerHTML = `<h3>Trading Results</h3>${statsHtml}`;
 }
 
-// Symbol change handler
-document.getElementById('symbol').addEventListener('change', function(e) {
-    const newSymbol = e.target.value;
-    if (newSymbol) {
-        currentSymbol = newSymbol;
-        tickHistory = [];
-        startTickAnalysis(newSymbol);
-        
-        // If we're authenticated, also update trading websocket
-        if (auth.getToken().token) {
-            startWebSocket();
-        }
+// Add this new function to sync symbol dropdown and analyzer
+function syncSymbol(newSymbol) {
+    if (!newSymbol) return;
+    
+    // Update current symbol globally
+    currentSymbol = newSymbol;
+    
+    // Update dropdown if it exists
+    const symbolDropdown = document.getElementById('symbol');
+    if (symbolDropdown && symbolDropdown.value !== newSymbol) {
+        symbolDropdown.value = newSymbol;
     }
+    
+    // Reset tick history and start new analysis
+    tickHistory = [];
+    startTickAnalysis(newSymbol);
+
+    // If we're authenticated, also update trading websocket
+    if (clientStore.getToken()) {
+        startWebSocket();
+    }
+}
+
+// Update the symbol change handler
+document.getElementById('symbol').addEventListener('change', function(e) {
+    syncSymbol(e.target.value);
 });
 
 // Modify the form submission handler
 document.getElementById('tradingForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    
+
     const activeAccount = clientStore.getActiveAccount();
     if (!activeAccount) {
         showNotification('Please select an account first', 'error');
@@ -808,15 +1195,15 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
 
     const stake = parseFloat(document.getElementById('stake').value);
     const symbol = document.getElementById('symbol').value;
-    
+
     if (stake && symbol) {
         cleanupTrades();
         stakeAmount = stake;
         currentSymbol = symbol;
-        
+
         // Execute trade immediately
         placeTrades(stake, symbol);
-        
+
         // Disable submit button temporarily
         const submitButton = document.querySelector('#tradingForm button[type="submit"]');
         if (submitButton) {
@@ -828,20 +1215,60 @@ document.getElementById('tradingForm').addEventListener('submit', function(e) {
     }
 });
 
-// Replace the DOMContentLoaded event listener
-document.addEventListener('DOMContentLoaded', function() {
-    // Start tick analysis immediately
-    startTickAnalysis(currentSymbol);
-    
-    // Start trading websocket if authenticated
-    if (auth.getToken().token) {
-        startWebSocket();
-    }
+// Update the DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // Sync symbol dropdown with current symbol
+        syncSymbol(currentSymbol);
+        
+        // Initialize WebSocket connections immediately
+        let connectionAttempts = 0;
+        const maxAttempts = 3;
+        
+        while (connectionAttempts < maxAttempts) {
+            try {
+                await Promise.all([
+                    startWebSocket().catch(e => {
+                        console.warn('WebSocket connection failed, retrying...', e);
+                        throw e;
+                    }),
+                    startTickAnalysis(currentSymbol).catch(e => {
+                        console.warn('Tick analysis connection failed, retrying...', e);
+                        throw e;
+                    })
+                ]);
+                break; // Exit loop if successful
+            } catch (error) {
+                connectionAttempts++;
+                if (connectionAttempts === maxAttempts) {
+                    throw new Error('Failed to establish WebSocket connections after multiple attempts');
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+            }
+        }
 
-    // Add event listeners
-    document.getElementById('fullscreen-btn')?.addEventListener('click', toggleFullscreen);
-    document.getElementById('startButton')?.addEventListener('click', startArbitrageBot);
-    document.getElementById('stopButton')?.addEventListener('click', stopArbitrageBot);
+        // Get and validate token after connections established
+        const token = clientStore.getToken();
+        if (token) {
+            const isValid = await clientStore.validateToken();
+            if (isValid) {
+                isAuthenticated = true;
+                showNotification('Successfully connected to trading server', 'success');
+            }
+        }
+
+        // Add event listeners
+        document.getElementById('fullscreen-btn')?.addEventListener('click', toggleFullscreen);
+        document.getElementById('startButton')?.addEventListener('click', startArbitrageBot);
+        document.getElementById('stopButton')?.addEventListener('click', stopArbitrageBot);
+
+        // Initialize UI
+        updateUI();
+        
+    } catch (error) {
+        console.error('Failed to initialize:', error);
+        showNotification('Failed to connect to trading server. Please refresh.', 'error');
+    }
 });
 
 // Add fullscreen functionality
@@ -877,9 +1304,13 @@ function toggleFullscreen() {
 // Add arbitrage bot controls
 function startArbitrageBot() {
     if (!clientStore.validateToken()) return;
-    
+
     isRunning = true;
     updateUI();
+
+    // Reset tracking on start
+    totalProfit = 0;
+    consecutiveLosses = 0;
 
     if (derivWs?.readyState !== WebSocket.OPEN) {
         startWebSocket();
@@ -888,27 +1319,7 @@ function startArbitrageBot() {
 
 function stopArbitrageBot() {
     isRunning = false;
+    wsManager.resetAttempts(); // Reset attempts when stopping manually
     cleanupTrades();
     updateUI();
-}
-
-function handleTradeExecution(signal) {
-    if (!isRunning) return;
-    
-    const contractType = signal.type;
-    const stake = parseFloat(document.getElementById('stake').value) || 1;
-
-    const request = {
-        proposal: 1,
-        subscribe: 1,
-        amount: stake,
-        basis: "stake",
-        contract_type: DIGITOVER,
-        currency: clientStore.currency,
-        duration: 1,
-        duration_unit: "t",
-        symbol: currentSymbol
-    };
-
-    derivWs.send(JSON.stringify(request));
 }

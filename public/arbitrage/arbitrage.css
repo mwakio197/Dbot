@@ -2,8 +2,8 @@ body {
     background: linear-gradient(45deg, #0a0a2e, #1a1a3a);
     min-height: 600px;
     height: 100vh;
-    overflow: hidden;
-    display: flex;
+    overflow:auto;
+    display:flex;
     align-items: flex-start; /* Changed from center to flex-start */
     justify-content: center;
     font-family: 'Segoe UI', sans-serif;
@@ -45,11 +45,19 @@ body {
 .container::-webkit-scrollbar-thumb:hover {
     background-color: rgba(255, 255, 255, 0.3);
 }
+.main-container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding-bottom: 20px;
+    min-width: 100%;
+}
 
 @media (min-width: 768px) {
     .container {
         max-width: 1200px;
-        display: grid;
+        display:block;
         grid-template-columns: 2fr 1fr 1fr;
         gap: 20px;
         align-items: start;
@@ -63,6 +71,15 @@ body {
         height: auto;
         max-height: calc(100vh - 80px);
         overflow-y: auto;
+    }
+    .main-container{
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 20px;
+        padding-bottom: 20px;
+        overflow-y: auto;
+        min-width: 100%;
     }
 }
 
@@ -306,6 +323,7 @@ label {
     padding: 20px;
     margin-top: 20px;
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    padding-bottom: 150px;
 }
 
 .trade-stats {
@@ -319,38 +337,131 @@ label {
     text-align: center;
 }
 
+.trade-stats .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.trade-stats .stat-label {
+    font-size: 12px;
+    color: #88ccff;
+    margin-bottom: 5px;
+}
+
+.trade-stats .stat-value {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.trade-stats .positive {
+    color: #00ff9d;
+}
+
+.trade-stats .negative {
+    color: #ff5555;
+}
+
 .trade-results {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
 
+.trade-results .no-trades {
+    text-align: center;
+    padding: 20px;
+    color: #88ccff;
+    font-style: italic;
+}
+
+.trade-results .trade-time {
+    color: #88ccff;
+    font-size: 12px;
+}
+
+.trade-results .trade-type {
+    color: #fff;
+}
+
+.trade-results .trade-digit {
+    color: #fff;
+}
+
+.trade-results .positive {
+    color: #00ff9d;
+}
+
+.trade-results .negative {
+    color: #ff5555;
+}
+
 .trade-result {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 10px;
-    padding: 12px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
     align-items: center;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-bottom: 5px;
 }
 
-.trade-result span {
+.trade-details {
+    display: flex;
+    gap: 15px;
+    align-items: center;
     font-size: 14px;
-    padding: 2px 8px;
 }
 
-.trade-result .profit {
+.trade-profit {
+    font-weight: bold;
+    padding: 2px 8px;
     border-radius: 4px;
-    padding: 2px 8px;
 }
 
-.trade-result.win .profit {
+.trade-result.win .trade-profit {
     background: rgba(0, 255, 157, 0.2);
+    color: #00ff9d;
 }
 
-.trade-result.loss .profit {
+.trade-result.loss .trade-profit {
     background: rgba(255, 85, 85, 0.2);
+    color: #ff5555;
+}
+
+.trade-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.trade-details {
+    display: flex;
+    gap: 10px;
+    font-size: 12px;
+    color: #88ccff;
+    margin-bottom: 5px;
+}
+
+.trade-result-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+
+.stake, .payout {
+    color: #fff;
+    opacity: 0.8;
+}
+
+.trade-result {
+    padding: 15px;
+    margin-bottom: 10px;
 }
 
 .fullscreen-btn {
@@ -404,4 +515,34 @@ label {
     font-weight: bold;
     border: 1px solid rgba(255, 255, 255, 0.2);
     z-index: 1000;
+}
+
+.connection-status {
+    position: fixed;
+    top: 20px;
+    right: 70px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #ff4444;
+    box-shadow: 0 0 8px rgba(255, 68, 68, 0.5);
+    transition: all 0.3s ease;
+}
+
+.connection-status.connected {
+    background-color: #00ff9d;
+    box-shadow: 0 0 8px rgba(0, 255, 157, 0.5);
+}
+#ws-status {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 8px;
+    transition: background-color 0.3s ease;
+    background-color: #f44336; /* Default to red/disconnected */
+}
+
+#ws-status.connected {
+    background-color: #4CAF50;
 }
