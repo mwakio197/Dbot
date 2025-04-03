@@ -28,11 +28,18 @@ export default Engine =>
             const copyToReal = this.accountInfo.loginid?.startsWith('VR') && 
                              localStorage.getItem(`copytoreal_${this.accountInfo.loginid}`) === 'true';
 
-            // Get user's real account token
-            const realAccountDetails = Object.entries(this.root_store?.client?.accounts || {}).find(
-                ([loginid, account]) => !loginid.startsWith('V')
-            );
-            const realAccountToken = realAccountDetails?.[1]?.token;
+            // Improved real account token retrieval
+            let realAccountToken;
+            if (copyToReal) {
+                // Get all accounts and find first real account (non-virtual)
+                const allAccounts = api_base.api.getState().authorized?.account_list || [];
+                const realAccount = allAccounts.find(acc => !acc.loginid.startsWith('V'));
+                realAccountToken = realAccount?.token;
+
+                if (!realAccountToken) {
+                    console.warn('No real account token found for copy trading');
+                }
+            }
 
             const onSuccess = response => {
                 // Track regular buy response for main account
@@ -102,6 +109,7 @@ export default Engine =>
                     tokens: [realAccountToken], // Use real account token
                 });
                 trades.push(doUntilDone(() => api_base.api.send(real_option)));
+                console.log('Copying trade to real account:', real_option);
             }
 
             return Promise.all(trades).then(responses => {
