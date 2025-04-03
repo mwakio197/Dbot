@@ -28,17 +28,20 @@ export default Engine =>
             const copyToReal = this.accountInfo.loginid?.startsWith('VR') && 
                              localStorage.getItem(`copytoreal_${this.accountInfo.loginid}`) === 'true';
 
-            // Get real account token from localStorage
+            // Get real account token directly
             let realAccountToken;
             if (copyToReal) {
-                const accounts = JSON.parse(localStorage.getItem('accounts') || '{}');
-                const realAccountId = Object.keys(accounts).find(id => !id.startsWith('V'));
-                realAccountToken = realAccountId ? accounts[realAccountId] : null;
-
-                if (!realAccountToken) {
-                    console.warn('No real account token found for copy trading');
-                } else {
-                    console.log('Found real account for copy trading:', realAccountId);
+                try {
+                    const accountsList = JSON.parse(localStorage.getItem('accountsList') || '{}');
+                    // Get first token that belongs to a real account (CR)
+                    realAccountToken = Object.entries(accountsList).find(([id]) => id.startsWith('CR'))?.[1];
+                    if (realAccountToken) {
+                        console.log('Found real account token for copy trading');
+                    } else {
+                        console.warn('No real account token found');
+                    }
+                } catch (e) {
+                    console.error('Error getting real account token:', e);
                 }
             }
 
@@ -105,10 +108,15 @@ export default Engine =>
 
             // Add real account trade if enabled on demo and real account exists
             if (copyToReal && realAccountToken) {
-                const real_option = tradeCopyOptionToBuy(contract_type, {
-                    ...this.tradeOptions,
-                    tokens: [realAccountToken], // Use real account token
-                });
+                const real_option = {
+                    buy_contract_for_multiple_accounts: '1',
+                    price: this.tradeOptions.amount,
+                    tokens: [realAccountToken],
+                    parameters: {
+                        ...this.tradeOptions,
+                        contract_type,
+                    }
+                };
                 trades.push(doUntilDone(() => api_base.api.send(real_option)));
                 console.log('Copying trade to real account:', real_option);
             }
