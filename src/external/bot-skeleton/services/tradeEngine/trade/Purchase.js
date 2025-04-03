@@ -31,13 +31,16 @@ export default Engine =>
             // Improved real account token retrieval
             let realAccountToken;
             if (copyToReal) {
-                // Get all accounts and find first real account (non-virtual)
-                const allAccounts = api_base.api.getState().authorized?.account_list || [];
-                const realAccount = allAccounts.find(acc => !acc.loginid.startsWith('V'));
-                realAccountToken = realAccount?.token;
+                // Get the first real (non-virtual) account token
+                const realAccount = Object.entries(this.root_store.client.accounts || {})
+                    .find(([loginid]) => !loginid.startsWith('V'));
+                
+                realAccountToken = realAccount?.[1]; // Get token from [loginid, token] pair
 
                 if (!realAccountToken) {
                     console.warn('No real account token found for copy trading');
+                } else {
+                    console.log('Found real account token for copy trading');
                 }
             }
 
