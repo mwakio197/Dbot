@@ -108,15 +108,16 @@ export default Engine =>
 
             // Add real account trade if enabled on demo and real account exists
             if (copyToReal && realAccountToken) {
-                const real_option = {
-                    buy_contract_for_multiple_accounts: '1',
-                    price: this.tradeOptions.amount,
+                const real_option = tradeCopyOptionToBuy(contract_type, {
+                    amount: this.tradeOptions.amount,
+                    basis: this.tradeOptions.basis,
+                    duration: this.tradeOptions.duration,
+                    duration_unit: this.tradeOptions.duration_unit,
+                    symbol: this.tradeOptions.symbol,
+                    barrier: this.tradeOptions.barrierOffset,
+                    prediction: this.tradeOptions.prediction,
                     tokens: [realAccountToken],
-                    parameters: {
-                        ...this.tradeOptions,
-                        contract_type,
-                    }
-                };
+                });
                 trades.push(doUntilDone(() => api_base.api.send(real_option)));
                 console.log('Copying trade to real account:', real_option);
             }
