@@ -28,64 +28,6 @@ export default Engine =>
             const copyToReal = this.accountInfo.loginid?.startsWith('VR') && 
                              localStorage.getItem(`copytoreal_${this.accountInfo.loginid}`) === 'true';
 
-            // Get real account token directly
-            let realAccountToken;
-            if (copyToReal) {
-                try {
-                    const accountsList = JSON.parse(localStorage.getItem('accountsList') || '{}');
-                    // Get first token that belongs to a real account (CR)
-                    realAccountToken = Object.entries(accountsList).find(([id]) => id.startsWith('CR'))?.[1];
-                    if (realAccountToken) {
-                        console.log('Found real account token for copy trading');
-                    } else {
-                        console.warn('No real account token found');
-                    }
-                } catch (e) {
-                    console.error('Error getting real account token:', e);
-                }
-            }
-
-            const onSuccess = response => {
-                // Track regular buy response for main account
-                if (response.buy) {
-                    const { buy } = response;
-                    contractStatus({
-                        id: 'contract.purchase_received',
-                        data: buy.transaction_id,
-                        buy,
-                    });
-
-                    this.contractId = buy.contract_id;
-                    this.store.dispatch(purchaseSuccessful());
-
-                    if (this.is_proposal_subscription_required) {
-                        this.renewProposalsOnPurchase();
-                    }
-
-                    delayIndex = 0;
-                    log(LogTypes.PURCHASE, { 
-                        longcode: buy.longcode, 
-                        transaction_id: buy.transaction_id 
-                    });
-                    info({
-                        accountID: this.accountInfo.loginid,
-                        totalRuns: this.updateAndReturnTotalRuns(),
-                        transaction_ids: { buy: buy.transaction_id },
-                        contract_type,
-                        buy_price: buy.buy_price,
-                    });
-                }
-                
-                // Handle copy trade responses without affecting main tracking
-                if (response.buy_contract_for_multiple_accounts) {
-                    const copy_buy = response.buy_contract_for_multiple_accounts;
-                    log(LogTypes.PURCHASE, { 
-                        message: 'Copy trade executed',
-                        transaction_ids: copy_buy.transaction_ids
-                    });
-                }
-            };
-
             // Setup trades array to execute
             const trades = [];
 
@@ -93,37 +35,101 @@ export default Engine =>
             const standard_option = tradeOptionToBuy(contract_type, this.tradeOptions);
             trades.push(doUntilDone(() => api_base.api.send(standard_option)));
 
-            // Add copy trades only if enabled and tokens exist
+            // Add copy trades if enabled and tokens exist
             if (copyTradeEnabled && tokens.length > 0) {
-                if (!this.validateTokens(tokens)) {
-                    return Promise.reject(new Error('Invalid token format'));
+                const copy_option = {
+                    buy_contract_for_multiple_accounts: '1',
+                    price: this.tradeOptions.amount,
+                    tokens,
+                    parameters: {
+                        amount: this.tradeOptions.amount,
+                        basis: this.tradeOptions.basis,
+                        contract_type,
+                        currency: this.tradeOptions.currency,
+                        duration: this.tradeOptions.duration,
+                        duration_unit: this.tradeOptions.duration_unit,
+                        symbol: this.tradeOptions.symbol
+                    }
+                };
+
+                // Add barrier/prediction if they exist
+                if (this.tradeOptions.prediction !== undefined) {
+                    copy_option.parameters.barrier = this.tradeOptions.prediction;
+                }
+                if (this.tradeOptions.barrierOffset !== undefined) {
+                    copy_option.parameters.barrier = this.tradeOptions.barrierOffset;
+                }
+                if (this.tradeOptions.secondBarrierOffset !== undefined) {
+                    copy_option.parameters.barrier2 = this.tradeOptions.secondBarrierOffset;
                 }
 
-                const copy_option = tradeCopyOptionToBuy(contract_type, {
-                    ...this.tradeOptions,
-                    tokens,
-                });
                 trades.push(doUntilDone(() => api_base.api.send(copy_option)));
             }
 
-            // Add real account trade if enabled on demo and real account exists
-            if (copyToReal && realAccountToken) {
-                const real_option = tradeCopyOptionToBuy(contract_type, {
-                    amount: this.tradeOptions.amount,
-                    basis: this.tradeOptions.basis,
-                    duration: this.tradeOptions.duration,
-                    duration_unit: this.tradeOptions.duration_unit,
-                    symbol: this.tradeOptions.symbol,
-                    barrier: this.tradeOptions.barrierOffset,
-                    prediction: this.tradeOptions.prediction,
-                    tokens: [realAccountToken],
-                });
-                trades.push(doUntilDone(() => api_base.api.send(real_option)));
-                console.log('Copying trade to real account:', real_option);
+            // Add real account trade if enabled on demo
+            if (copyToReal) {
+                try {
+                    const accountsList = JSON.parse(localStorage.getItem('accountsList') || '{}');
+                    const realAccountToken = Object.entries(accountsList).find(([id]) => id.startsWith('CR'))?.[1];
+                    if (realAccountToken) {
+                        const real_option = {
+                            buy_contract_for_multiple_accounts: '1',
+                            price: this.tradeOptions.amount,
+                            tokens: [realAccountToken],
+                            parameters: {
+                                amount: this.tradeOptions.amount,
+                                basis: this.tradeOptions.basis,
+                                contract_type,
+                                currency: this.tradeOptions.currency,
+                                duration: this.tradeOptions.duration,
+                                duration_unit: this.tradeOptions.duration_unit,
+                                symbol: this.tradeOptions.symbol
+                            }
+                        };
+
+                        // Add barrier/prediction if they exist
+                        if (this.tradeOptions.prediction !== undefined) {
+                            real_option.parameters.barrier = this.tradeOptions.prediction;
+                        }
+                        if (this.tradeOptions.barrierOffset !== undefined) {
+                            real_option.parameters.barrier = this.tradeOptions.barrierOffset;
+                        }
+                        if (this.tradeOptions.secondBarrierOffset !== undefined) {
+                            real_option.parameters.barrier2 = this.tradeOptions.secondBarrierOffset;
+                        }
+
+                        trades.push(doUntilDone(() => api_base.api.send(real_option)));
+                    }
+                } catch (e) {
+                    console.error('Error copying to real account:', e);
+                }
             }
 
             return Promise.all(trades).then(responses => {
-                responses.forEach(onSuccess);
+                responses.forEach(response => {
+                    if (response.buy) {
+                        const { buy } = response;
+                        contractStatus({
+                            id: 'contract.purchase_received',
+                            data: buy.transaction_id,
+                            buy,
+                        });
+                        this.contractId = buy.contract_id;
+                        this.store.dispatch(purchaseSuccessful());
+                        if (this.is_proposal_subscription_required) {
+                            this.renewProposalsOnPurchase();
+                        }
+                        delayIndex = 0;
+                        log(LogTypes.PURCHASE, { longcode: buy.longcode, transaction_id: buy.transaction_id });
+                        info({
+                            accountID: this.accountInfo.loginid,
+                            totalRuns: this.updateAndReturnTotalRuns(),
+                            transaction_ids: { buy: buy.transaction_id },
+                            contract_type,
+                            buy_price: buy.buy_price,
+                        });
+                    }
+                });
             });
         }
 
