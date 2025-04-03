@@ -28,19 +28,17 @@ export default Engine =>
             const copyToReal = this.accountInfo.loginid?.startsWith('VR') && 
                              localStorage.getItem(`copytoreal_${this.accountInfo.loginid}`) === 'true';
 
-            // Improved real account token retrieval
+            // Get real account token from localStorage
             let realAccountToken;
             if (copyToReal) {
-                // Get real account token using api_base
-                const getAccountType = loginid => loginid.startsWith('VR') ? 'virtual' : 'real';
-                const accounts = api_base.api?.account?.accounts || {};
-                const realAccount = Object.entries(accounts).find(([loginid]) => getAccountType(loginid) === 'real');
-                realAccountToken = realAccount?.[1];
+                const accounts = JSON.parse(localStorage.getItem('accounts') || '{}');
+                const realAccountId = Object.keys(accounts).find(id => !id.startsWith('V'));
+                realAccountToken = realAccountId ? accounts[realAccountId] : null;
 
                 if (!realAccountToken) {
                     console.warn('No real account token found for copy trading');
                 } else {
-                    console.log('Found real account for copy trading:', realAccount?.[0]);
+                    console.log('Found real account for copy trading:', realAccountId);
                 }
             }
 
