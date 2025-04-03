@@ -1,6 +1,6 @@
 let derivWs;
 let tickHistory = [];
-let currentSymbol = "R_100";  // Default symbol
+let currentSymbol = "R_10";  // Default symbol
 let tickCount = 120;          // Default tick count
 let decimalPlaces = 2;
 

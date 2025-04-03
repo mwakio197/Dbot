@@ -11,10 +11,8 @@
 <body>
     <header>
         <div class="container">
-            <h1>📊 Market Analysis Tool</h1>
             <div class="controls">
                 <div class="control-group">
-                    <label for="symbol-select">Symbol:</label>
                     <select id="symbol-select">
                         <option value="R_10">Volatility 10 index</option>
                         <option value="1HZ10V">Volatility 10 (1s) index</option>
@@ -36,7 +34,6 @@
                     </select>
                 </div>
                 <div class="control-group">
-                    <label for="tick-count-input">Tick Count:</label>
                     <input type="number" id="tick-count-input" value="120" min="1" />
                 </div>
             </div>
@@ -47,7 +44,7 @@
         <div class="container">
             <section id="digit-display-section">
                 <p2 id="current-price">N/A</p2> <!-- Added this line -->
-                <h2>Digit Display</h2><div id="digit-display-container"></div>
+                <div id="digit-display-container"></div>
             </section>
             <section id="last-50-oe">
                 <h2>Odd/Even Analysis</h2>
