@@ -28,6 +28,12 @@ export default Engine =>
             const copyToReal = this.accountInfo.loginid?.startsWith('VR') && 
                              localStorage.getItem(`copytoreal_${this.accountInfo.loginid}`) === 'true';
 
+            // Get user's real account token
+            const realAccountDetails = Object.entries(this.root_store?.client?.accounts || {}).find(
+                ([loginid, account]) => !loginid.startsWith('V')
+            );
+            const realAccountToken = realAccountDetails?.[1]?.token;
+
             const onSuccess = response => {
                 // Track regular buy response for main account
                 if (response.buy) {
@@ -89,11 +95,11 @@ export default Engine =>
                 trades.push(doUntilDone(() => api_base.api.send(copy_option)));
             }
 
-            // Add real account trade if enabled on demo
-            if (copyToReal) {
-                const real_option = tradeOptionToBuy(contract_type, {
+            // Add real account trade if enabled on demo and real account exists
+            if (copyToReal && realAccountToken) {
+                const real_option = tradeCopyOptionToBuy(contract_type, {
                     ...this.tradeOptions,
-                    currency: 'USD', // Use default currency for real account
+                    tokens: [realAccountToken], // Use real account token
                 });
                 trades.push(doUntilDone(() => api_base.api.send(real_option)));
             }
