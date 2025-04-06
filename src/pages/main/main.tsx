@@ -20,6 +20,7 @@ import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
+import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
 
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
@@ -90,7 +91,7 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { DASHBOARD, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS } = DBOT_TABS;
+    const { DASHBOARD, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, TRADING_HUB } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -201,7 +202,7 @@ const AppWrapper = observer(() => {
         setAnalysisToolUrl(url);
     };
 
-    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.CHART, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.SIGNALS].includes(active_tab);
+    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.CHART, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.SIGNALS, DBOT_TABS.TRADING_HUB].includes(active_tab);
 
     return (
         <React.Fragment>
@@ -302,7 +303,7 @@ const AppWrapper = observer(() => {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <iframe src='https://binaryfx.site/acc-center' height='600px' frameBorder='0' />
+                                <TradingHubDisplay />
                             </div>
                         </div>
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>

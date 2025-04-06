@@ -28,6 +28,7 @@ export default class RunPanelStore {
     core: TStores;
     disposeReactionsFn: () => void;
     timer: NodeJS.Timeout | null;
+    stake: string | null = null;
 
     constructor(root_store: RootStore, core: TStores) {
         makeObservable(this, {
@@ -86,6 +87,8 @@ export default class RunPanelStore {
             preloadAudio: action,
             onMount: action,
             onUnmount: action,
+            is_auto_differ: observable,
+            setAutoDiffer: action,
         });
 
         this.root_store = root_store;
@@ -93,6 +96,10 @@ export default class RunPanelStore {
         this.core = core;
         this.disposeReactionsFn = this.registerReactions();
         this.timer = null;
+
+        // Set initial state of auto differ toggle
+        this.setAutoDiffer(false);
+        localStorage.setItem('is_auto_differ', 'false');
     }
 
     active_index = 0;
@@ -106,6 +113,7 @@ export default class RunPanelStore {
     is_sell_requested = false;
     show_bot_stop_message = false;
     is_contracy_buying_in_progress = false;
+    is_auto_differ = false;
 
     run_id = '';
     onOkButtonClick: (() => void) | null = null;
@@ -514,6 +522,48 @@ export default class RunPanelStore {
                 this.onStopButtonClick();
             }
         }
+
+        if (this.is_auto_differ) {
+            const workspace = Blockly.derivWorkspace;
+            const blocks = workspace.getAllBlocks();
+            
+            // Find all required blocks
+            const trade_definition = blocks.find(b => b.type === 'trade_definition');
+            const purchase = blocks.find(b => b.type === 'purchase');
+            const barrier_offset = blocks.find(b => b.type === 'barrier_offset');
+            
+            if (trade_definition) {
+                try {
+                    // Set trade parameters
+                    trade_definition.setFieldValue('R_10', 'market_list');
+                    trade_definition.setFieldValue('DIGITDIFF', 'tradetype_list');
+                    
+                    // Set stake amount from trading hub inputs
+                    if (purchase) {
+                        const amount_block = purchase.getInputTargetBlock('AMOUNT');
+                        if (amount_block) {
+                            amount_block.setFieldValue(this.stake || '1', 'NUM');
+                        }
+                    }
+
+                    // Set barrier value
+                    if (barrier_offset) {
+                        barrier_offset.setFieldValue('1', 'BARRIEROFFSETTYPE_LIST');
+                    }
+
+                    // Set duration to 1 tick
+                    const duration_block = trade_definition.getInputTargetBlock('TRADE_OPTIONS');
+                    if (duration_block) {
+                        duration_block.setFieldValue('t', 'DURATIONTYPE_LIST');
+                        duration_block.setFieldValue('1', 'DURATION');
+                    }
+
+                    workspace.render();
+                } catch (error) {
+                    console.error('Error setting digit differ parameters:', error);
+                }
+            }
+        }
     };
 
     onBotSellEvent = () => {
@@ -529,6 +579,10 @@ export default class RunPanelStore {
             ui.setAccountSwitcherDisabledMessage();
             this.unregisterBotListeners();
             self_exclusion.resetSelfExclusion();
+
+            // Reset auto differ toggle
+            this.setAutoDiffer(false);
+            localStorage.setItem('is_auto_differ', 'false');
         };
         if (this.error_type === ErrorTypes.RECOVERABLE_ERRORS) {
             // Bot should indicate it started in below cases:
@@ -690,6 +744,10 @@ export default class RunPanelStore {
 
     setIsRunning = (is_running: boolean) => {
         this.is_running = is_running;
+    };
+
+    setAutoDiffer = (enabled: boolean) => {
+        this.is_auto_differ = enabled;
     };
 
     onMount = () => {

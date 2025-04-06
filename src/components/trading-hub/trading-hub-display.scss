@@ -1,0 +1,165 @@
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.trading-hub-display {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 400px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    color: #2c3e50;
+    animation: fadeIn 0.3s ease-out;
+
+    &__inputs {
+        display: grid;
+        gap: 1rem;
+    }
+
+    &__input-group {
+        position: relative;
+        
+        label {
+            position: absolute;
+            left: 0.5rem;
+            top: -0.6875rem;
+            font-size: 10px;
+            color: #6b7c93;
+            transition: all 0.2s ease;
+            background: #ffffff;
+            padding: 0 0.5rem;
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        input:focus ~ label {
+            color: #4d84ff;
+        }
+    }
+
+    &__input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #e1e8ef;
+        border-radius: 8px;
+        background: #ffffff;
+        color: #2c3e50;
+        font-size: 14px;
+        transition: all 0.2s ease;
+
+        &::placeholder {
+            color: transparent;
+        }
+
+        &:focus {
+            outline: none;
+            border-color: #4d84ff;
+            box-shadow: 0 0 0 3px rgba(77, 132, 255, 0.1);
+        }
+    }
+
+    .button {
+        padding: 0.875rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #4d84ff, #3d6eff);
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(77, 132, 255, 0.2);
+        }
+
+        &:active {
+            transform: translateY(0);
+        }
+    }
+
+    &__results {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 1rem;
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #e1e8ef;
+
+        &::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    }
+
+    &__contract-result {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #ffffff;
+        border-radius: 8px;
+        animation: slideIn 0.2s ease-out;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+
+        &.profit--positive {
+            border-left: 3px solid #4caf50;
+        }
+        
+        &.profit--negative {
+            border-left: 3px solid #f44336;
+        }
+    }
+
+    &__current-stake,
+    &__latest-result {
+        background: #f8fafc;
+        padding: 1rem;
+        border-radius: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid #e1e8ef;
+
+        .profit {
+            &--positive {
+                color: #4caf50;
+            }
+            
+            &--negative {
+                color: #f44336;
+            }
+        }
+    }
+
+    &__auto-differ-button {
+        background: linear-gradient(135deg, #2196f3, #1976d2);
+        color: white;
+        padding: 0.875rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+        }
+    }
+}
