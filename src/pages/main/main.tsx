@@ -303,7 +303,13 @@ const AppWrapper = observer(() => {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <TradingHubDisplay />
+                                <iframe
+                                    src="/tradehub"
+                                    width="98%"
+                                    height="600px"
+                                    style={{ border: 'none', display: 'block' }}
+                                    scrolling="yes"
+                                />
                             </div>
                         </div>
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
