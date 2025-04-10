@@ -328,9 +328,8 @@ const AppHeader = observer(() => {
                         <Localize i18n_default_text='Log in' />
                     </Button>
                     <Button
-                        primary
                         onClick={() => {
-                            window.open(standalone_routes.signup);
+                            window.location.href = 'https://track.deriv.com/_iwWUciP8an5BMfcXPt5VjGNd7ZgqdRLk/1/';
                         }}
                     >
                         <Localize i18n_default_text='Sign up' />
