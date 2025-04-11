@@ -23,7 +23,6 @@ import RunStrategy from '../dashboard/run-strategy';
 import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
 
 const Chart = lazy(() => import('../chart'));
-const Tutorial = lazy(() => import('../tutorials'));
 
 const DashboardIcon = () => (
     <svg width="20" height="20" fill="var(--text-general)" viewBox="0 0 24 24">
@@ -34,6 +33,19 @@ const DashboardIcon = () => (
 const BotBuilderIcon = () => (
     <svg fill="var(--text-general)" width="24px" height="24px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path fill-rule="evenodd" d="M20,9.85714286 L20,14.1428571 C20,15.2056811 19.0732946,16 18,16 L6,16 C4.92670537,16 4,15.2056811 4,14.1428571 L4,9.85714286 C4,8.79431889 4.92670537,8 6,8 L18,8 C19.0732946,8 20,8.79431889 20,9.85714286 Z M6,10 L6,14 L18,14 L18,10 L6,10 Z M2,19 L2,17 L22,17 L22,19 L2,19 Z M2,7 L2,5 L22,5 L22,7 L2,7 Z" />
+    </svg>
+);
+
+const AutoTraderIcon = () => (
+    <svg width="20px" height="20px" viewBox="0 0 64 64" fill="none" stroke="var(--text-general)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+        <rect x="14" y="14" width="36" height="36" rx="4" ry="4" />
+        <rect x="23" y="23" width="5" height="5" />
+        <rect x="36" y="23" width="5" height="5" />
+        <line x1="18" y1="14" x2="18" y2="6" />
+        <line x1="46" y1="14" x2="46" y2="6" />
+        <line x1="26" y1="50" x2="26" y2="58" />
+        <line x1="38" y1="50" x2="38" y2="58" />
+        <line x1="23" y1="35" x2="41" y2="35" />
     </svg>
 );
 
@@ -91,7 +103,7 @@ const AppWrapper = observer(() => {
     const { is_dialog_open, dialog_options, onCancelButtonClick, onCloseDialog, onOkButtonClick, stopBot, is_drawer_open } = run_panel;
     const { cancel_button_text, ok_button_text, title, message } = dialog_options as { [key: string]: string };
     const { clear } = summary_card;
-    const { DASHBOARD, BOT_BUILDER, ANALYSIS_TOOL, SIGNALS, TRADING_HUB } = DBOT_TABS;
+    const { DASHBOARD, BOT_BUILDER, AUTO, ANALYSIS_TOOL, SIGNALS, TRADING_HUB } = DBOT_TABS;
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -202,7 +214,7 @@ const AppWrapper = observer(() => {
         setAnalysisToolUrl(url);
     };
 
-    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.CHART, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.SIGNALS, DBOT_TABS.TRADING_HUB].includes(active_tab);
+    const showRunPanel = [DBOT_TABS.BOT_BUILDER, DBOT_TABS.CHART, DBOT_TABS.AUTO, DBOT_TABS.ANALYSIS_TOOL, DBOT_TABS.SIGNALS, DBOT_TABS.TRADING_HUB].includes(active_tab);
 
     return (
         <React.Fragment>
@@ -216,13 +228,17 @@ const AppWrapper = observer(() => {
                         <div label={<><BotBuilderIcon /><Localize i18n_default_text='Bot Builder' /></>} id='id-bot-builder' />
                         <div label={<><ChartsIcon /><Localize i18n_default_text='Charts' /></>} id='id-charts'>
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading chart...')} />}>
-                                <Chart show_digits_stats={false} />
+                                <Chart show_digits_stats={true} />
                             </Suspense>
                         </div>
-                        <div label={<><TutorialsIcon /><Localize i18n_default_text='Tutorials' /></>} id='id-tutorials'>
-                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading tutorials...')} />}>
-                                <Tutorial handleTabChange={handleTabChange} />
-                            </Suspense>
+                        <div label={<><AutoTraderIcon /><Localize i18n_default_text='Auto' /></>} id='id-auto'>
+                            <div className={classNames('dashboard__chart-wrapper', {
+                                'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
+                                'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
+                            })}>
+                                <TradingHubDisplay />
+                               
+                            </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
                             <div className={classNames('dashboard__chart-wrapper', {
