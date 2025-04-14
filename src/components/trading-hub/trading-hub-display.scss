@@ -14,57 +14,59 @@
     gap: 1.5rem;
     max-width: 400px;
     margin: 2rem auto;
-    padding: 2rem;
+    padding: 20px;
     background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-    color: #2c3e50;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    color: #333;
+    font-family: 'Roboto', sans-serif;
     animation: fadeIn 0.3s ease-out;
 
     &__inputs {
         display: grid;
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+        color:#000;
     }
 
     &__input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
         position: relative;
-        
+
         label {
             position: absolute;
-            left: 0.5rem;
-            top: -0.6875rem;
-            font-size: 10px;
-            color: #6b7c93;
-            transition: all 0.2s ease;
+            left: 1rem;
+            top: -0.5rem;
+            font-size: 12px;
+            color: #555;
             background: #ffffff;
-            padding: 0 0.5rem;
+            padding: 0 4px;
             pointer-events: none;
-            line-height: 1;
+            transition: all 0.2s ease;
         }
 
-        input:focus ~ label {
-            color: #4d84ff;
+        .trading-hub-display__input {
+            color: #000000;
         }
     }
 
     &__input {
         width: 100%;
         padding: 0.75rem 1rem;
-        border: 1px solid #e1e8ef;
+        border: 1px solid #707070;
         border-radius: 8px;
-        background: #ffffff;
-        color: #2c3e50;
+        background: #f9f9f9;
+        color: #000;
         font-size: 14px;
         transition: all 0.2s ease;
-
-        &::placeholder {
-            color: transparent;
-        }
 
         &:focus {
             outline: none;
             border-color: #4d84ff;
-            box-shadow: 0 0 0 3px rgba(77, 132, 255, 0.1);
+            box-shadow: 0 0 0 3px rgba(77, 132, 255, 0.2);
         }
     }
 
@@ -90,19 +92,19 @@
     }
 
     &__results {
-        background: #f8fafc;
+        background: #f9f9f9;
         border-radius: 12px;
         padding: 1rem;
         max-height: 200px;
         overflow-y: auto;
-        border: 1px solid #e1e8ef;
+        border: 1px solid #ccc;
 
         &::-webkit-scrollbar {
             width: 4px;
         }
 
         &::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
+            background: #ddd;
             border-radius: 4px;
         }
     }
@@ -128,13 +130,13 @@
 
     &__current-stake,
     &__latest-result {
-        background: #f8fafc;
+        background: #f9f9f9;
         padding: 1rem;
         border-radius: 12px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border: 1px solid #e1e8ef;
+        border: 1px solid #ccc;
 
         .profit {
             &--positive {
@@ -147,7 +149,8 @@
         }
     }
 
-    &__auto-differ-button {
+    &__auto-differ-button,
+    &__auto-overunder-button {
         background: linear-gradient(135deg, #2196f3, #1976d2);
         color: white;
         padding: 0.875rem 1.5rem;
@@ -161,5 +164,59 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
         }
+
+        &.futuristic-button--active {
+            background: #4caf50; /* Green background for active state */
+            color: #fff;
+            border: 1px solid #4caf50;
+        }
     }
+}
+
+.futuristic-input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.futuristic-input:focus {
+    border-color: #00d1ff;
+    box-shadow: 0 0 8px #00d1ff;
+}
+
+.futuristic-button {
+    background: rgba(0, 209, 255, 0.1);
+    border: 1px solid rgba(0, 209, 255, 0.5);
+    border-radius: 8px;
+    color: #00d1ff;
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.futuristic-button:hover {
+    background: rgba(0, 209, 255, 0.2);
+    box-shadow: 0 0 10px #00d1ff;
+}
+
+.futuristic-button--active {
+    background: #00d1ff;
+    color: #fff;
+}
+
+.futuristic-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }

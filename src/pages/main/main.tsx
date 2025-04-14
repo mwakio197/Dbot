@@ -133,6 +133,9 @@ const AppWrapper = observer(() => {
                 handleTabChange(tab_index);
             }
         }
+
+        // Set overunder state to "no" on page load
+        localStorage.setItem('is_auto_overunder', 'false');
     }, [searchParams]);
 
     useEffect(() => {

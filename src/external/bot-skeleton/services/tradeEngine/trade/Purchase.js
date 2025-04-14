@@ -23,7 +23,7 @@ export default Engine =>
 
         calculateNextStake(lastResult, currentStake, baseStake) {
             const martingaleMultiplier = localStorage.getItem('auto_differ_martingale') || '2';
-            
+            // Apply martingale multiplier only after a loss.
             if (lastResult === 'loss') {
                 return (parseFloat(currentStake) * parseFloat(martingaleMultiplier)).toFixed(2);
             }
@@ -35,18 +35,63 @@ export default Engine =>
                 return Promise.resolve();
             }
 
+            const isAutoOverUnderEnabled = localStorage.getItem('is_auto_overunder') === 'true';
             const isAutoDifferEnabled = localStorage.getItem('is_auto_differ') === 'true';
 
-            if (isAutoDifferEnabled) {
+            if (isAutoOverUnderEnabled) {
+                // Apply same stake logic as autodiffer:
+                let tradeStake = localStorage.getItem('auto_differ_current_stake') || '1';
+
+                const selectedContract = Math.random() < 0.5 ? 'DIGITOVER' : 'DIGITUNDER';
+                const barrier = selectedContract === 'DIGITOVER' ? 1 : 8;
+                const symbols = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+                const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+
+                const overunder_request = {
+                    proposal: 1,
+                    amount: tradeStake,
+                    basis: 'stake',
+                    contract_type: selectedContract,
+                    currency: this.tradeOptions.currency || 'USD',
+                    duration_unit: 't',
+                    duration: 1,
+                    symbol: symbol,
+                    barrier: barrier
+                };
+
+                return doUntilDone(() => api_base.api.send(overunder_request))
+                    .then(response => {
+                        if (!response.proposal) throw new Error('No proposal');
+                        return doUntilDone(() => api_base.api.send({
+                            buy: response.proposal.id,
+                            price: tradeStake
+                        }));
+                    })
+                    .then(response => {
+                        if (!response.buy) throw new Error('Purchase failed');
+
+                        // Update stake and martingale based on result using autodiffer local storage items
+                        const isWin = response.buy.profit > 0;
+                        localStorage.setItem('auto_differ_last_result', isWin ? 'win' : 'loss');
+
+                        if (isWin) {
+                            tradeStake = localStorage.getItem('auto_differ_stake') || '1';
+                        } else {
+                            const martingaleMultiplier = localStorage.getItem('auto_differ_martingale') || '2';
+                            tradeStake = (parseFloat(tradeStake) * parseFloat(martingaleMultiplier)).toFixed(2);
+                        }
+
+                        localStorage.setItem('auto_differ_current_stake', tradeStake);
+
+                        return this.handlePurchaseSuccess(response, selectedContract, tradeStake);
+                    });
+            } else if (isAutoDifferEnabled) {
                 const tradeStake = localStorage.getItem('auto_differ_current_stake') || '1';
                 const lastResult = localStorage.getItem('auto_differ_last_result');
                 const storedContract = localStorage.getItem('auto_differ_contract_type') || 'DIGITDIFF';
-
-                // Use stored contract type or default to DIGITDIFF
                 const selectedContract = storedContract;
                 let barrier;
 
-                // Set barrier based on contract type
                 if (selectedContract === 'DIGITOVER') {
                     barrier = 2;
                 } else if (selectedContract === 'DIGITUNDER') {
@@ -82,113 +127,114 @@ export default Engine =>
                         if (!response.buy) throw new Error('Purchase failed');
                         return this.handlePurchaseSuccess(response, selectedContract, tradeStake);
                     });
-            } else {
-                const trades = [];
+            }
 
-                // Regular bot trading - use original parameters
-                const standard_option = tradeOptionToBuy(contract_type, this.tradeOptions);
-                trades.push(doUntilDone(() => {
-                    if (['MULTUP', 'MULTDOWN'].includes(contract_type)) {
-                        console.warn(`Trade type ${contract_type} is not supported.`);
-                        return Promise.resolve();
-                    }
-                    return api_base.api.send(standard_option);
-                }).catch(e => console.warn(e)));
+            // Fallback to original trading behavior when neither mode is enabled
+            const trades = [];
 
-                // Get stored tokens and settings
-                const savedTokens = localStorage.getItem(`extratokens_${this.accountInfo.loginid}`);
-                const tokens = savedTokens ? JSON.parse(savedTokens) : [];
-                const copyTradeEnabled = localStorage.getItem(`copytradeenabled_${this.accountInfo.loginid}`) === 'true';
-                const copyToReal = this.accountInfo.loginid?.startsWith('VR') &&
-                    localStorage.getItem(`copytoreal_${this.accountInfo.loginid}`) === 'true';
-
-                // Add copy trades if enabled and tokens exist
-                if (copyTradeEnabled && tokens.length > 0) {
-                    const copy_option = {
-                        buy_contract_for_multiple_accounts: '1',
-                        price: this.tradeOptions.amount,
-                        tokens,
-                        parameters: {
-                            amount: this.tradeOptions.amount,
-                            basis: this.tradeOptions.basis,
-                            contract_type,
-                            currency: this.tradeOptions.currency,
-                            duration: this.tradeOptions.duration,
-                            duration_unit: this.tradeOptions.duration_unit,
-                            symbol: this.tradeOptions.symbol
-                        }
-                    };
-
-                    // Add barrier/prediction if they exist
-                    if (this.tradeOptions.prediction !== undefined) {
-                        copy_option.parameters.barrier = this.tradeOptions.prediction;
-                    }
-                    if (this.tradeOptions.barrierOffset !== undefined) {
-                        copy_option.parameters.barrier = this.tradeOptions.barrierOffset;
-                    }
-                    if (this.tradeOptions.secondBarrierOffset !== undefined) {
-                        copy_option.parameters.barrier2 = this.tradeOptions.secondBarrierOffset;
-                    }
-
-                    trades.push(doUntilDone(() => api_base.api.send(copy_option)));
-                }
-
-                // Add real account trade if enabled on demo
-                if (copyToReal) {
-                    try {
-                        const accountsList = JSON.parse(localStorage.getItem('accountsList') || '{}');
-                        const realAccountToken = Object.entries(accountsList).find(([id]) => id.startsWith('CR'))?.[1];
-                        if (realAccountToken) {
-                            const real_option = {
-                                buy_contract_for_multiple_accounts: '1',
-                                price: this.tradeOptions.amount,
-                                tokens: [realAccountToken],
-                                parameters: {
-                                    amount: this.tradeOptions.amount,
-                                    basis: this.tradeOptions.basis,
-                                    contract_type,
-                                    currency: this.tradeOptions.currency,
-                                    duration: this.tradeOptions.duration,
-                                    duration_unit: this.tradeOptions.duration_unit,
-                                    symbol: this.tradeOptions.symbol
-                                }
-                            };
-
-                            // Add barrier/prediction if they exist
-                            if (this.tradeOptions.prediction !== undefined) {
-                                real_option.parameters.barrier = this.tradeOptions.prediction;
-                            }
-                            if (this.tradeOptions.barrierOffset !== undefined) {
-                                real_option.parameters.barrier = this.tradeOptions.barrierOffset;
-                            }
-                            if (this.tradeOptions.secondBarrierOffset !== undefined) {
-                                real_option.parameters.barrier2 = this.tradeOptions.secondBarrierOffset;
-                            }
-
-                            trades.push(doUntilDone(() => api_base.api.send(real_option)));
-                        }
-                    } catch (e) {
-                        console.error('Error copying to real account:', e);
-                    }
-                }
-
-                if (trades.length === 0) {
+            // Regular bot trading - use original parameters
+            const standard_option = tradeOptionToBuy(contract_type, this.tradeOptions);
+            trades.push(doUntilDone(() => {
+                if (['MULTUP', 'MULTDOWN'].includes(contract_type)) {
+                    console.warn(`Trade type ${contract_type} is not supported.`);
                     return Promise.resolve();
                 }
+                return api_base.api.send(standard_option);
+            }).catch(e => console.warn(e)));
 
-                return Promise.all(trades)
-                    .then(responses => {
-                        const successfulTrades = responses.filter(response => response && response.buy);
-                        if (successfulTrades.length > 0) {
-                            return Promise.all(
-                                successfulTrades.map(response =>
-                                    this.handlePurchaseSuccess(response, contract_type, this.tradeOptions.amount)
-                                )
-                            );
-                        }
-                        return responses;
-                    });
+            // Get stored tokens and settings
+            const savedTokens = localStorage.getItem(`extratokens_${this.accountInfo.loginid}`);
+            const tokens = savedTokens ? JSON.parse(savedTokens) : [];
+            const copyTradeEnabled = localStorage.getItem(`copytradeenabled_${this.accountInfo.loginid}`) === 'true';
+            const copyToReal = this.accountInfo.loginid?.startsWith('VR') &&
+                localStorage.getItem(`copytoreal_${this.accountInfo.loginid}`) === 'true';
+
+            // Add copy trades if enabled and tokens exist
+            if (copyTradeEnabled && tokens.length > 0) {
+                const copy_option = {
+                    buy_contract_for_multiple_accounts: '1',
+                    price: this.tradeOptions.amount,
+                    tokens,
+                    parameters: {
+                        amount: this.tradeOptions.amount,
+                        basis: this.tradeOptions.basis,
+                        contract_type,
+                        currency: this.tradeOptions.currency,
+                        duration: this.tradeOptions.duration,
+                        duration_unit: this.tradeOptions.duration_unit,
+                        symbol: this.tradeOptions.symbol
+                    }
+                };
+
+                // Add barrier/prediction if they exist
+                if (this.tradeOptions.prediction !== undefined) {
+                    copy_option.parameters.barrier = this.tradeOptions.prediction;
+                }
+                if (this.tradeOptions.barrierOffset !== undefined) {
+                    copy_option.parameters.barrier = this.tradeOptions.barrierOffset;
+                }
+                if (this.tradeOptions.secondBarrierOffset !== undefined) {
+                    copy_option.parameters.barrier2 = this.tradeOptions.secondBarrierOffset;
+                }
+
+                trades.push(doUntilDone(() => api_base.api.send(copy_option)));
             }
+
+            // Add real account trade if enabled on demo
+            if (copyToReal) {
+                try {
+                    const accountsList = JSON.parse(localStorage.getItem('accountsList') || '{}');
+                    const realAccountToken = Object.entries(accountsList).find(([id]) => id.startsWith('CR'))?.[1];
+                    if (realAccountToken) {
+                        const real_option = {
+                            buy_contract_for_multiple_accounts: '1',
+                            price: this.tradeOptions.amount,
+                            tokens: [realAccountToken],
+                            parameters: {
+                                amount: this.tradeOptions.amount,
+                                basis: this.tradeOptions.basis,
+                                contract_type,
+                                currency: this.tradeOptions.currency,
+                                duration: this.tradeOptions.duration,
+                                duration_unit: this.tradeOptions.duration_unit,
+                                symbol: this.tradeOptions.symbol
+                            }
+                        };
+
+                        // Add barrier/prediction if they exist
+                        if (this.tradeOptions.prediction !== undefined) {
+                            real_option.parameters.barrier = this.tradeOptions.prediction;
+                        }
+                        if (this.tradeOptions.barrierOffset !== undefined) {
+                            real_option.parameters.barrier = this.tradeOptions.barrierOffset;
+                        }
+                        if (this.tradeOptions.secondBarrierOffset !== undefined) {
+                            real_option.parameters.barrier2 = this.tradeOptions.secondBarrierOffset;
+                        }
+
+                        trades.push(doUntilDone(() => api_base.api.send(real_option)));
+                    }
+                } catch (e) {
+                    console.error('Error copying to real account:', e);
+                }
+            }
+
+            if (trades.length === 0) {
+                return Promise.resolve();
+            }
+
+            return Promise.all(trades)
+                .then(responses => {
+                    const successfulTrades = responses.filter(response => response && response.buy);
+                    if (successfulTrades.length > 0) {
+                        return Promise.all(
+                            successfulTrades.map(response =>
+                                this.handlePurchaseSuccess(response, contract_type, this.tradeOptions.amount)
+                            )
+                        );
+                    }
+                    return responses;
+                });
         }
 
         handlePurchaseSuccess(response, contract_type, stake) {

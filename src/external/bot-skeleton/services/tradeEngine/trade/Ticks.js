@@ -118,6 +118,21 @@ export default Engine =>
             return this.$scope.ticksService.pipSizes[this.symbol];
         }
 
+        // Add new method to determine auto overunder trade based on last digit
+        async getAutoOverUnderTrade() {
+            const last_digit = await this.getLastDigit();
+            const digit = parseInt(last_digit, 10);
+            if (digit > 7) {
+                return { contract: 'DIGITUNDER', barrier: 8 };
+            } else if (digit < 2) {
+                return { contract: 'DIGITOVER', barrier: 1 };
+            } else {
+                const contract = Math.random() < 0.5 ? 'DIGITOVER' : 'DIGITUNDER';
+                const barrier = contract === 'DIGITOVER' ? 1 : 8;
+                return { contract, barrier };
+            }
+        }
+
         async requestAccumulatorStats() {
             const subscription_id = this.subscription_id_for_accumulators;
             const is_proposal_requested = this.is_proposal_requested_for_accumulators;

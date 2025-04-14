@@ -14,7 +14,7 @@
 
     &__list {
         width: 100%;
-        line-height: 38px;
+        line-height: 30px;
         display: flex;
         position: relative;
 
@@ -76,7 +76,7 @@
 
     &__item {
         list-style: none;
-        font-size: 14px;
+        font-size: 13px;
         text-align: center;
         white-space: nowrap;
         color: var(--text-general);
@@ -93,12 +93,12 @@
 
             @include mobile-or-tablet-screen {
                 padding-right: 0;
-                padding-top: 0.5rem;
+                padding-top: 0;
             }
         }
 
         &--header-fit-content {
-            padding: 0 29px;
+            padding: 0 16px;
         }
 
         &--is-hidden {
