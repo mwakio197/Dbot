@@ -1663,58 +1663,45 @@ const AdvancedDisplay = observer(() => {
                 <div className="auth-modal">
                     <div className="auth-modal__header">
                         <h3>Authentication Required</h3>
+                        <button className="settings-modal__close-btn" onClick={() => setShowAuthModal(false)}>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
                     </div>
                     <div className="auth-modal__content">
                         <p className="auth-modal__description">
-                            Please enter your Deriv API token to access trading features. 
-                            You can create an API token in your Deriv account settings.
+                            Please log in with your Deriv account to access trading features.
                         </p>
-                        
-                        <div className="auth-modal__input-group">
-                            <label htmlFor="api-token">API Token</label>
-                            <input
-                                id="api-token"
-                                type="text"
-                                value={apiToken}
-                                onChange={(e) => setApiToken(e.target.value)}
-                                className="auth-modal__input"
-                                placeholder="Enter your API token"
-                                disabled={isAuthLoading}
-                            />
-                        </div>
                         
                         {authError && <div className="auth-modal__error">{authError}</div>}
                         
-                        <div className="auth-modal__helper-text">
-                            <p>To create a token:</p>
-                            <ol>
-                                <li>Go to <a href="https://app.deriv.com/account/api-token" target="_blank" rel="noopener noreferrer">Deriv API Token page</a></li>
-                                <li>Create a token with "Read", "Trade", "Payments" and "Admin" scopes</li>
-                                <li>Copy and paste the token here</li>
-                            </ol>
+                        <div className="auth-modal__login-section">
+                            <Button
+                                className="auth-modal__login-button"
+                                onClick={() => {
+                                    const app_id = getAppId();
+                                    const oauth_url = 'https://oauth.deriv.com/oauth2/authorize';
+                                    const redirect_uri = encodeURIComponent(`${window.location.origin}/callback`);
+                                    const url = `${oauth_url}?app_id=${app_id}&l=EN&brand=deriv&redirect_uri=${redirect_uri}`;
+                                    window.location.href = url;
+                                }}
+                                disabled={isAuthLoading}
+                            >
+                                {isAuthLoading ? 'Processing...' : 'Log in with Deriv'}
+                            </Button>
                         </div>
-                    </div>
-                    <div className="auth-modal__footer">
-                        <button
-                            className="auth-modal__button auth-modal__button--primary"
-                            onClick={handleAuthenticate}
-                            disabled={isAuthLoading || !apiToken}
-                        >
-                            {isAuthLoading ? (
-                                <>
-                                    <span className="loading-spinner"></span>
-                                    Authenticating...
-                                </>
-                            ) : (
-                                'Authenticate'
-                            )}
-                        </button>
+                        
+                        <div className="auth-modal__helper-text">
+                            <p>Secure authentication through Deriv's official login system.</p>
+                            <p>You will be redirected to Deriv to complete the authentication process.</p>
+                        </div>
                     </div>
                 </div>
             </div>
         );
     };
-
+    
     // Add auth status component in header
     const renderAuthStatus = () => {
         if (!isAuthenticated) return null;
