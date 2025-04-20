@@ -912,3 +912,459 @@
         }
     }
 }
+
+// Auth modal overlay styling for both modals
+.auth-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease;
+}
+
+.auth-modal {
+  width: 400px;
+  max-width: 90%;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: slideInUp 0.3s ease-out;
+
+  &__header {
+    background: linear-gradient(135deg, #4d84ff, #3d6eff);
+    color: white;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+  }
+
+  &__close-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+
+  &__content {
+    padding: 20px;
+    max-height: calc(85vh - 120px);
+    overflow-y: auto;
+
+    .manage-header {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+
+    .copy-trading-header {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-top: 20px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+  }
+
+  &__footer {
+    padding: 15px 20px;
+    background: #f9fafc;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  &__button {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    background: #e6e6e6;
+    color: #333;
+
+    &:hover {
+      background: #d9d9d9;
+    }
+
+    &--primary {
+      background: linear-gradient(135deg, #4d84ff, #3d6eff);
+      color: white;
+
+      &:hover {
+        background: linear-gradient(135deg, #3a70e0, #3257d3);
+      }
+    }
+  }
+
+  &__input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: #4d84ff;
+      box-shadow: 0 0 0 3px rgba(77, 132, 255, 0.15);
+    }
+  }
+
+  // Improve styling for the account cards
+  .account-cards-container {
+    background: #f9fafc;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .deriv-account-switcher-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    &__icon {
+      margin-right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    &__detail {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    &__currency {
+      font-weight: 600;
+      font-size: 14px;
+      color: #333;
+    }
+
+    &__type {
+      font-size: 12px;
+      color: #666;
+    }
+
+    &__balance {
+      font-weight: 600;
+      font-size: 14px;
+      color: #4d84ff;
+    }
+  }
+
+  // Improve styling for copy trading controls
+  .copy-trading-controls {
+    background: #f9fafc;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .copy-trading-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+
+    span {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+  }
+
+  // Improved styling for toggle buttons
+  .toggle-button {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    background-color: #ccc;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+
+    &__slider {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      background-color: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+
+    &.active {
+      background-color: #4d84ff;
+
+      .toggle-button__slider {
+        transform: translateX(26px);
+      }
+    }
+  }
+
+  .input-section {
+    position: relative;
+    margin-bottom: 16px;
+
+    input {
+      padding-right: 40px;
+    }
+
+    .submit-button {
+      position: absolute;
+      right: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px;
+      border-radius: 50%;
+      
+      &:hover {
+        background: rgba(77, 132, 255, 0.1);
+      }
+
+      svg {
+        width: 20px;
+        height: 20px;
+        fill: #4d84ff;
+      }
+    }
+  }
+
+  .connected-tokens {
+    &__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 8px 0;
+    }
+
+    &__list {
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      border-radius: 6px;
+      background: white;
+    }
+
+    &__item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid #eee;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &-info {
+        flex: 1;
+      }
+
+      &-token {
+        font-size: 13px;
+        color: #4d84ff;
+        font-family: monospace;
+        word-break: break-all;
+      }
+
+      &-remove {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: #f44336;
+        padding: 4px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &:hover {
+          background: rgba(244, 67, 54, 0.1);
+        }
+
+        svg {
+          width: 16px;
+          height: 16px;
+          fill: currentColor;
+        }
+      }
+    }
+  }
+
+  // Improve styling for copy to real account toggle
+  .copy-to-real {
+    background: #f9fafc;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+
+    &__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 12px 0;
+    }
+
+    &__toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      span {
+        font-size: 14px;
+        color: #333;
+      }
+    }
+  }
+
+  // Improve styling for no account state
+  .no-account-state {
+    text-align: center;
+    padding: 30px 20px;
+    background: #f9fafc;
+    border-radius: 8px;
+
+    &__icon {
+      margin-bottom: 16px;
+      color: #999;
+      
+      svg {
+        width: 48px;
+        height: 48px;
+        fill: currentColor;
+      }
+    }
+
+    &__title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 8px 0;
+    }
+
+    &__description {
+      font-size: 14px;
+      color: #666;
+      margin: 0 0 20px 0;
+    }
+
+    &__button {
+      min-width: 120px;
+    }
+  }
+}
+
+// Social links modal styling
+.social-links-modal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.social-link {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: #f9fafc;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+  
+  &__icon {
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  &__name {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+  }
+}
+
+// Animation for slide-in effect
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+// Animation for fade-in effect
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
