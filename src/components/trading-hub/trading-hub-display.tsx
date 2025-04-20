@@ -56,19 +56,6 @@ const TradingHubDisplay = observer(() => {
         setCurrentStake(value); // Update current stake when base stake changes
         localStorage.setItem('auto_differ_stake', value);
         localStorage.setItem('auto_differ_current_stake', value);
-        
-        // Update workspace immediately with new stake
-        const workspace = (window as any).Blockly?.derivWorkspace;
-        if (workspace) {
-            const purchase = workspace.getAllBlocks().find((b: any) => b.type === 'purchase');
-            if (purchase) {
-                const amount_block = purchase.getInputTargetBlock('AMOUNT');
-                if (amount_block) {
-                    amount_block.setFieldValue(value, 'NUM');
-                    workspace.render();
-                }
-            }
-        }
     };
 
     const handleMaxLossChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,78 +76,7 @@ const TradingHubDisplay = observer(() => {
         localStorage.setItem('auto_differ_martingale', value);
     };
 
-    // Enhanced stake update function
-    const updateStakeAndWorkspace = async (newStake: string, isWin: boolean) => {
-        try {
-            // Remove hardcoded max limit of 100
-            const validStake = Math.max(0.35, parseFloat(newStake)).toFixed(2);
-            console.log(`${isWin ? 'WIN' : 'LOSS'} - Validated stake:`, validStake);
-            
-            setCurrentStake(validStake);
-            localStorage.setItem('auto_differ_current_stake', validStake);
-
-            const workspace = (window as any).Blockly?.derivWorkspace;
-            if (!workspace) return;
-
-            const purchase = workspace.getAllBlocks().find((b: any) => b.type === 'purchase');
-            if (purchase) {
-                const amount_block = purchase.getInputTargetBlock('AMOUNT');
-                if (amount_block) {
-                    amount_block.setFieldValue(validStake, 'NUM');
-                    workspace.render();
-                    return true;
-                }
-            }
-            return false;
-        } catch (error) {
-            console.error('Error updating stake:', error);
-            return false;
-        }
-    };
-
-    // Updated refined martingale calculation using stored current stake
-    const calculateNextStake = (isWin: boolean, martingale: string) => {
-        if (isWin) {
-            return localStorage.getItem('auto_differ_stake') || '1';
-        }
-        const current_stake = parseFloat(localStorage.getItem('auto_differ_current_stake') || stake);
-        const multiplier = parseFloat(martingale);
-        const newStake = (current_stake * multiplier).toFixed(2);
-        return newStake;
-    };
-
-    // Update updateContractType to use proper barriers when in auto overunder mode
-    const updateContractType = (contractType: string) => {
-        const workspace = (window as any).Blockly?.derivWorkspace;
-        if (!workspace) return;
-        const trade_definition = workspace.getAllBlocks().find((b: any) => b.type === 'trade_definition');
-        if (trade_definition) {
-            try {
-                trade_definition.setFieldValue(contractType, 'tradetype_list');
-                if (localStorage.getItem('is_auto_overunder') === 'true') {
-                    // For auto overunder, use barrier 1 for DIGITOVER and 8 for DIGITUNDER
-                    if (contractType === 'DIGITOVER') {
-                        trade_definition.setFieldValue('1', 'number');
-                    } else if (contractType === 'DIGITUNDER') {
-                        trade_definition.setFieldValue('8', 'number');
-                    }
-                } else {
-                    if (contractType === 'DIGITOVER') {
-                        trade_definition.setFieldValue('2', 'number');
-                    } else if (contractType === 'DIGITUNDER') {
-                        trade_definition.setFieldValue('7', 'number');
-                    } else {
-                        trade_definition.setFieldValue(Math.floor(Math.random() * 10).toString(), 'number');
-                    }
-                }
-                workspace.render();
-            } catch (error) {
-                console.error('Error updating contract type:', error);
-            }
-        }
-    };
-
-    // Enhanced contract tracking with improved stake and contract type management
+    // Contract tracking update
     useEffect(() => {
         if (!transactions?.elements || (!is_auto_differ && !is_overunder)) return;
 
@@ -204,45 +120,37 @@ const TradingHubDisplay = observer(() => {
                         return;
                     }
 
-                    if (isWin) {
-                        console.log('WIN - Resetting to original stake and DIGITDIFF');
-                        updateStakeAndWorkspace(localStorage.getItem('auto_differ_stake') || '1', true);
-                        updateContractType('DIGITDIFF');
-                        localStorage.setItem('auto_differ_contract_type', 'DIGITDIFF');
-                    } else {
-                        const nextStake = calculateNextStake(false, martingale);
-
-                        if (is_overunder) {
-                            window.autoDiffer &&
-                                window.autoDiffer.getAutoOverUnderTrade().then(({ contract, barrier }) => {
-                                    console.log(`LOSS - Auto O/U: Switching to ${contract} with stake:`, nextStake);
-                                    updateStakeAndWorkspace(nextStake, false);
-                                    updateContractType(contract);
-                                    localStorage.setItem('auto_differ_contract_type', contract);
-                                    localStorage.setItem('auto_differ_current_stake', nextStake);
-                                });
-                        } else {
-                            const nextContract = Math.random() < 0.5 ? 'DIGITOVER' : 'DIGITUNDER';
-                            console.log('LOSS - Switching to', nextContract, 'with stake:', nextStake);
-                            updateStakeAndWorkspace(nextStake, false);
-                            updateContractType(nextContract);
-                            localStorage.setItem('auto_differ_contract_type', nextContract);
-                            localStorage.setItem('auto_differ_current_stake', nextStake);
-                        }
-                    }
+                    // Calculate next stake based on win/loss - but no longer interacting with Blockly
+                    const nextStake = isWin ? 
+                        localStorage.getItem('auto_differ_stake') || '1' :
+                        calculateNextStake(false, martingale);
+                        
+                    localStorage.setItem('auto_differ_current_stake', nextStake);
+                    setCurrentStake(nextStake);
                 }
             }
         }
     }, [transactions?.elements, is_auto_differ, is_overunder]);
 
-    // Reset stake on Auto Differ toggle
+    // Updated refined martingale calculation using stored current stake
+    const calculateNextStake = (isWin: boolean, martingale: string) => {
+        if (isWin) {
+            return localStorage.getItem('auto_differ_stake') || '1';
+        }
+        const current_stake = parseFloat(localStorage.getItem('auto_differ_current_stake') || stake);
+        const multiplier = parseFloat(martingale);
+        const newStake = (current_stake * multiplier).toFixed(2);
+        return newStake;
+    };
+
     const handleAutoDiffer = (enabled: boolean) => {
         localStorage.setItem('is_auto_differ', String(enabled));
         if (enabled) {
             // When enabling autodiffer disable auto overunder
             localStorage.setItem('is_auto_overunder', 'false');
             setIsOverUnder(false);
-            updateStakeAndWorkspace(stake, true);
+            setCurrentStake(stake);
+            localStorage.setItem('auto_differ_current_stake', stake);
         }
         setAutoDiffer(enabled);
     };
@@ -253,46 +161,26 @@ const TradingHubDisplay = observer(() => {
             // When enabling auto overunder disable autodiffer
             localStorage.setItem('is_auto_differ', 'false');
             setAutoDiffer(false);
+            setCurrentStake(stake);
+            localStorage.setItem('auto_differ_current_stake', stake);
         }
         setIsOverUnder(enabled);
     };
 
-    // Modified handleSetInputs to use new updateContractType function
-    const handleSetInputs = () => {
-        const workspace = (window as any).Blockly?.derivWorkspace;
-        if (!workspace) return;
-
-        const blocks = workspace.getAllBlocks();
-        const trade_definition = blocks.find((b: any) => b.type === 'trade_definition');
-        const purchase = blocks.find((b: any) => b.type === 'purchase');
-        const duration = trade_definition?.getInputTargetBlock('TRADE_OPTIONS');
-
-        if (trade_definition && purchase) {
-            try {
-                // Set market
-                trade_definition.setFieldValue('R_10', 'market_list');
-                
-                // Start with DIGITDIFF
-                updateContractType('DIGITDIFF');
-
-                // Set stake amount
-                const amount_block = purchase.getInputTargetBlock('AMOUNT');
-                if (amount_block) {
-                    amount_block.setFieldValue(currentStake, 'NUM');
-                }
-
-                // Set duration to 1 tick
-                if (duration) {
-                    duration.setFieldValue('t', 'DURATIONTYPE_LIST');
-                    duration.setFieldValue('1', 'DURATION');
-                }
-
-                workspace.render();
-            } catch (error) {
-                console.error('Error setting inputs:', error);
-            }
-        }
+    // Save settings to localStorage
+    const saveSettings = () => {
+        localStorage.setItem('auto_differ_stake', stake);
+        localStorage.setItem('auto_differ_max_loss', maxLoss);
+        localStorage.setItem('auto_differ_max_profit', maxProfit);
+        localStorage.setItem('auto_differ_martingale', martingale);
+        localStorage.setItem('auto_differ_current_stake', stake);
+        setCurrentStake(stake);
+        
+        setStatus('Settings saved successfully');
+        setTimeout(() => setStatus(''), 3000);
     };
+
+    const [status, setStatus] = useState('');
 
     const formatMoney = (amount: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -362,13 +250,13 @@ const TradingHubDisplay = observer(() => {
                 <Button
                     className='trading-hub-display__set-inputs-button futuristic-button'
                     variant='secondary'
-                    onClick={handleSetInputs}
+                    onClick={saveSettings}
                 >
-                    Apply Settings
+                    Save Settings
                 </Button>
                 <Button
                     className={classNames('trading-hub-display__auto-differ-button futuristic-button', {
-                        'futuristic-button--active': is_auto_differ, // Add active class when Auto Differ is ON
+                        'futuristic-button--active': is_auto_differ,
                     })}
                     onClick={() => handleAutoDiffer(!is_auto_differ)}
                 >
@@ -376,7 +264,7 @@ const TradingHubDisplay = observer(() => {
                 </Button>
                 <Button
                     className={classNames('trading-hub-display__auto-overunder-button futuristic-button', {
-                        'futuristic-button--active': is_overunder, // Add active class when Auto Over/Under is ON
+                        'futuristic-button--active': is_overunder,
                     })}
                     onClick={() => handleAutoOverUnder(!is_overunder)}
                 >
@@ -387,6 +275,12 @@ const TradingHubDisplay = observer(() => {
                 <Text size='sm' weight='bold'>Active Stake:</Text>
                 <Text size='sm'>{formatMoney(parseFloat(currentStake))}</Text>
             </div>
+            
+            {status && (
+                <div className={`trading-hub-display__status ${status.includes('Error') ? 'error' : 'success'}`}>
+                    {status}
+                </div>
+            )}
         </div>
     );
 });

@@ -522,48 +522,6 @@ export default class RunPanelStore {
                 this.onStopButtonClick();
             }
         }
-
-        if (this.is_auto_differ) {
-            const workspace = Blockly.derivWorkspace;
-            const blocks = workspace.getAllBlocks();
-            
-            // Find all required blocks
-            const trade_definition = blocks.find(b => b.type === 'trade_definition');
-            const purchase = blocks.find(b => b.type === 'purchase');
-            const barrier_offset = blocks.find(b => b.type === 'barrier_offset');
-            
-            if (trade_definition) {
-                try {
-                    // Set trade parameters
-                    trade_definition.setFieldValue('R_10', 'market_list');
-                    trade_definition.setFieldValue('DIGITDIFF', 'tradetype_list');
-                    
-                    // Set stake amount from trading hub inputs
-                    if (purchase) {
-                        const amount_block = purchase.getInputTargetBlock('AMOUNT');
-                        if (amount_block) {
-                            amount_block.setFieldValue(this.stake || '1', 'NUM');
-                        }
-                    }
-
-                    // Set barrier value
-                    if (barrier_offset) {
-                        barrier_offset.setFieldValue('1', 'BARRIEROFFSETTYPE_LIST');
-                    }
-
-                    // Set duration to 1 tick
-                    const duration_block = trade_definition.getInputTargetBlock('TRADE_OPTIONS');
-                    if (duration_block) {
-                        duration_block.setFieldValue('t', 'DURATIONTYPE_LIST');
-                        duration_block.setFieldValue('1', 'DURATION');
-                    }
-
-                    workspace.render();
-                } catch (error) {
-                    console.error('Error setting digit differ parameters:', error);
-                }
-            }
-        }
     };
 
     onBotSellEvent = () => {

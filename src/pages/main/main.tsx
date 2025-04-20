@@ -20,7 +20,7 @@ import RunPanel from '../../components/run-panel';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
-import TradingHubDisplay from '@/components/trading-hub/trading-hub-display';
+import DisplayToggle from '@/components/trading-hub/display-toggle';
 
 const Chart = lazy(() => import('../chart'));
 
@@ -239,8 +239,7 @@ const AppWrapper = observer(() => {
                                 'dashboard__chart-wrapper--expanded': is_drawer_open && isDesktop,
                                 'dashboard__chart-wrapper--modal': is_chart_modal_visible && isDesktop,
                             })}>
-                                <TradingHubDisplay />
-                               
+                                <DisplayToggle />
                             </div>
                         </div>
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
