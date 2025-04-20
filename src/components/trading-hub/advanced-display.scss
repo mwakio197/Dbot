@@ -1211,10 +1211,10 @@
 
   // Futuristic button styles enhancement
   .futuristic-button {
-    background: rgba(0, 209, 255, 0.1);
+    background: rgba(0, 209, 255, 0.15);
     border: 1px solid rgba(0, 209, 255, 0.5);
     border-radius: 8px;
-    color: #00d1ff;
+    color: rgba(0, 26, 255, 0.308);
     padding: 12px 22px;
     font-size: 14px;
     font-weight: 600;
@@ -1356,7 +1356,7 @@
       min-width: 100px;
 
       &--primary {
-        background: linear-gradient(135deg, #4d84ff, #3d6eff);
+        background: rgba(174, 0, 255, 0.15);
         color: white;
         display: flex;
         gap: 8px;
@@ -2217,11 +2217,11 @@
     border: none;
 
     &--primary {
-      background: linear-gradient(135deg, #4d84ff, #3d6eff);
+      background: rgba(0, 209, 255, 0.15);
       color: white;
 
       &:hover:not(:disabled) {
-        background: linear-gradient(135deg, #3a70e0, #3257d3);
+        background: rgba(0, 209, 255, 0.15);
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(77, 132, 255, 0.2);
       }

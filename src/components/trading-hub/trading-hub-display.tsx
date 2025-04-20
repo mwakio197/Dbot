@@ -80,6 +80,14 @@ const TradingHubDisplay = observer(() => {
     useEffect(() => {
         if (!transactions?.elements || (!is_auto_differ && !is_overunder)) return;
 
+        // Force reset stake when trading mode is first enabled
+        const isAnyModeActive = is_auto_differ || is_overunder;
+        if (isAnyModeActive && localStorage.getItem('is_first_trade') !== 'false') {
+            console.log('Trading mode active with first trade pending, ensuring base stake is used');
+            setCurrentStake(stake);
+            localStorage.setItem('auto_differ_current_stake', stake);
+        }
+
         const elements = Object.values(transactions.elements)[0] || [];
         const latestElement = elements[0];
 
@@ -91,7 +99,8 @@ const TradingHubDisplay = observer(() => {
                     id            : contract.contract_id,
                     profit        : contract.profit,
                     current_stake : localStorage.getItem('auto_differ_current_stake'),
-                    original_stake: localStorage.getItem('auto_differ_stake')
+                    original_stake: localStorage.getItem('auto_differ_stake'),
+                    is_first_trade: localStorage.getItem('is_first_trade')
                 });
 
                 setCompletedContract(contract);
@@ -120,7 +129,10 @@ const TradingHubDisplay = observer(() => {
                         return;
                     }
 
-                    // Calculate next stake based on win/loss - but no longer interacting with Blockly
+                    // After first trade, mark as not first trade anymore
+                    localStorage.setItem('is_first_trade', 'false');
+                    
+                    // Calculate next stake based on win/loss
                     const nextStake = isWin ? 
                         localStorage.getItem('auto_differ_stake') || '1' :
                         calculateNextStake(false, martingale);
@@ -130,18 +142,43 @@ const TradingHubDisplay = observer(() => {
                 }
             }
         }
-    }, [transactions?.elements, is_auto_differ, is_overunder]);
+    }, [transactions?.elements, is_auto_differ, is_overunder, stake]);
 
     // Updated refined martingale calculation using stored current stake
     const calculateNextStake = (isWin: boolean, martingale: string) => {
-        if (isWin) {
+        // Always return base stake for first trade
+        if (localStorage.getItem('is_first_trade') === 'true') {
+            console.log('First trade detected, using base stake:', stake);
             return localStorage.getItem('auto_differ_stake') || '1';
         }
+        
+        if (isWin) {
+            console.log('Win detected, resetting to base stake');
+            return localStorage.getItem('auto_differ_stake') || '1';
+        }
+        
+        console.log('Loss detected, applying martingale multiplier');
         const current_stake = parseFloat(localStorage.getItem('auto_differ_current_stake') || stake);
         const multiplier = parseFloat(martingale);
         const newStake = (current_stake * multiplier).toFixed(2);
+        console.log(`Martingale calculation: ${current_stake} × ${multiplier} = ${newStake}`);
         return newStake;
     };
+
+    // Add effect to disable auto trading when component unmounts
+    useEffect(() => {
+        // Cleanup function that runs when component unmounts
+        return () => {
+            // Turn off auto trading modes when component is not visible
+            if (is_auto_differ || is_overunder) {
+                console.log('Trading Hub Display unmounted, disabling auto trading modes');
+                localStorage.setItem('is_auto_differ', 'false');
+                localStorage.setItem('is_auto_overunder', 'false');
+                setAutoDiffer(false);
+                setIsOverUnder(false);
+            }
+        };
+    }, [is_auto_differ, is_overunder, setAutoDiffer]);
 
     const handleAutoDiffer = (enabled: boolean) => {
         localStorage.setItem('is_auto_differ', String(enabled));
@@ -149,6 +186,20 @@ const TradingHubDisplay = observer(() => {
             // When enabling autodiffer disable auto overunder
             localStorage.setItem('is_auto_overunder', 'false');
             setIsOverUnder(false);
+            
+            // Reset to base stake when starting
+            setCurrentStake(stake);
+            localStorage.setItem('auto_differ_current_stake', stake);
+            
+            // Reset total profit counter
+            localStorage.setItem('total_profit', '0');
+            
+            // Mark as first trade
+            localStorage.setItem('is_first_trade', 'true');
+            
+            console.log('Auto Differ enabled with initial stake:', stake);
+        } else {
+            // Reset to base stake when stopping
             setCurrentStake(stake);
             localStorage.setItem('auto_differ_current_stake', stake);
         }
@@ -161,6 +212,20 @@ const TradingHubDisplay = observer(() => {
             // When enabling auto overunder disable autodiffer
             localStorage.setItem('is_auto_differ', 'false');
             setAutoDiffer(false);
+            
+            // Reset to base stake when starting - using same variable names and structure as handleAutoDiffer
+            setCurrentStake(stake);
+            localStorage.setItem('auto_differ_current_stake', stake);
+            
+            // Reset total profit counter
+            localStorage.setItem('total_profit', '0');
+            
+            // Mark as first trade
+            localStorage.setItem('is_first_trade', 'true');
+            
+            console.log('Auto Over/Under enabled with initial stake:', stake);
+        } else {
+            // Reset to base stake when stopping - same as handleAutoDiffer
             setCurrentStake(stake);
             localStorage.setItem('auto_differ_current_stake', stake);
         }
@@ -275,7 +340,6 @@ const TradingHubDisplay = observer(() => {
                 <Text size='sm' weight='bold'>Active Stake:</Text>
                 <Text size='sm'>{formatMoney(parseFloat(currentStake))}</Text>
             </div>
-            
             {status && (
                 <div className={`trading-hub-display__status ${status.includes('Error') ? 'error' : 'success'}`}>
                     {status}
