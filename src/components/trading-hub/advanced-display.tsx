@@ -537,7 +537,7 @@ const AdvancedDisplay = observer(() => {
                 if (match) barrier = match[1];
             }
 
-            const stake = Number(parseFloat(data.buy.buy_price).toFixed(2));
+            const stake = Number(parseFloat(String(data.buy.buy_price)).toFixed(2));
             const purchaseTime = Date.now();
 
             // Only track the contract in activeContracts but don't add to trade history yet
