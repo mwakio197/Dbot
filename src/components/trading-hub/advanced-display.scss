@@ -1211,8 +1211,8 @@
 
   // Futuristic button styles enhancement
   .futuristic-button {
-    background: rgba(0, 209, 255, 0.15);
-    border: 1px solid rgba(0, 209, 255, 0.5);
+    background: rgba(255, 0, 0, 0.486);
+    border: 1px solid rgb(0, 208, 255);
     border-radius: 8px;
     color: rgba(0, 26, 255, 0.308);
     padding: 12px 22px;
@@ -1645,7 +1645,7 @@
     background: rgba(77, 132, 255, 0.3);
     border-radius: 4px;
     &:hover {
-      background: rgba(77, 132, 255, 0.5);
+      background: rgb(77, 133, 255);
     }
   }
 
