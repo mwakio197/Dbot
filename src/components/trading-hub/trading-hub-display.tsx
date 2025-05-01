@@ -49,7 +49,7 @@ const TradingHubDisplay: React.FC = () => {
     const lastMartingaleActionRef = useRef<string>('initial');
     const lastWinTimeRef = useRef<number>(0);
 
-    const { run_panel, transactions } = useStore();
+    const { run_panel, transactions, client } = useStore();
 
     const [activeContracts, setActiveContracts] = useState<Record<string, any>>({});
     const contractUpdateInterval = useRef<NodeJS.Timeout | null>(null);
@@ -81,7 +81,7 @@ const TradingHubDisplay: React.FC = () => {
                 break;
                 
             case 'update':
-                if (params?.newValue) {
+                if (params?.newValue !== undefined) {
                     setMartingale(params.newValue);
                 }
                 break;
@@ -105,7 +105,7 @@ const TradingHubDisplay: React.FC = () => {
 
     const manageStake = (action: 'init' | 'reset' | 'martingale' | 'update' | 'get', params?: { 
         newValue?: string,
-        lossCount?: number 
+        lossCount?: number  
     }): string => {
         switch (action) {
             case 'init':
@@ -125,7 +125,7 @@ const TradingHubDisplay: React.FC = () => {
                 break;
                 
             case 'update':
-                if (params?.newValue) {
+                if (params?.newValue !== undefined) {
                     const inputValue = params.newValue;
                     setStake(inputValue);
                 }
@@ -155,7 +155,7 @@ const TradingHubDisplay: React.FC = () => {
                 const prevLossCount = currentConsecutiveLossesRef.current;
                 const newLossCount = params?.lossCount !== undefined ? 
                     params.lossCount : prevLossCount + 1;
-                    
+                       
                 const maxLossCount = 10;
                 const safeLossCount = Math.min(newLossCount, maxLossCount);
                 
@@ -210,7 +210,7 @@ const TradingHubDisplay: React.FC = () => {
         } catch (e) {
             console.warn('Could not load settings from localStorage', e);
         }
-    }, []);
+    }, [client?.loginid]);
 
     useEffect(() => {
         const session_id = `tradingHub_${Date.now()}`;
@@ -238,7 +238,7 @@ const TradingHubDisplay: React.FC = () => {
         const unsubscribe = marketAnalyzer.onAnalysis((newRecommendation, allStats) => {
             setRecommendation(newRecommendation);
             setMarketStats(allStats);
-            
+
             if (isContinuousTrading && isAutoOverUnderActive && newRecommendation) {
                 setCurrentStrategy(newRecommendation.strategy);
                 setCurrentSymbol(newRecommendation.symbol);
@@ -249,26 +249,26 @@ const TradingHubDisplay: React.FC = () => {
             if (response?.id === 'contract.settled' && response?.data && 
                 lastTradeRef.current?.id !== response.data.contract_id) {
                 const contract_info = response.data;
-                
+
                 if (contract_info.contract_id === activeContractRef.current) {
                     const isWin = contract_info.profit >= 0;
                     setLastTradeWin(isWin);
                     setLastTradeResult(isWin ? 'WIN' : 'LOSS');
-                    
+
                     console.log(`Contract ${contract_info.contract_id} settled with ${isWin ? 'WIN' : 'LOSS'}.`);
                     console.log(`Current stake: ${currentStakeRef.current}, Initial: ${initialStake}, Consecutive losses: ${currentConsecutiveLossesRef.current}`);
-                    
+
                     lastTradeRef.current = { 
                         id: contract_info.contract_id, 
                         profit: contract_info.profit 
                     };
-                    
+
                     if (isWin) {
                         manageStake('reset');
                     } else {
                         manageStake('martingale');
                     }
-                    
+
                     activeContractRef.current = null;
                 }
             }
@@ -279,7 +279,7 @@ const TradingHubDisplay: React.FC = () => {
                 contractSettlementHandler({
                     id: 'contract.settled',
                     data: response.data
-                });                
+                });
             }
         });
 
@@ -294,29 +294,29 @@ const TradingHubDisplay: React.FC = () => {
                 });
                 if (response?.proposal_open_contract) {
                     const contract = response.proposal_open_contract;
-                        
+
                     setActiveContracts(prev => ({
                         ...prev,
                         [contract.contract_id]: contract
                     }));
-                    
+
                     if (contract.is_sold === 1) {    
                         const contractId = contract.contract_id;
-                        
+                                                
                         if (lastTradeRef.current?.id === contractId) {
                             console.log(`Contract ${contractId} already processed, skipping duplicate settlement`);
                             return;
                         }
-                        
+                                                
                         const isWin = contract.profit >= 0;
                         const profit = contract.profit;
-                        
+
                         lastTradeRef.current = { id: contractId, profit };
                         contractSettledTimeRef.current = Date.now();
-                        
+
                         console.log(`Contract ${contractId} sold. Result: ${isWin ? 'WIN' : 'LOSS'}, Profit: ${profit}`);
                         console.log(`Current stake before update: ${currentStakeRef.current}, Consecutive losses: ${currentConsecutiveLossesRef.current}`);
-                        
+
                         if (isWin) {
                             setWinCount(prev => prev + 1);
                             manageStake('reset');
@@ -326,7 +326,7 @@ const TradingHubDisplay: React.FC = () => {
                             manageStake('martingale');
                             setLastTradeResult('LOSS');
                         }
-                        
+
                         setActiveContracts(prev => {
                             const newContracts = { ...prev };
                             delete newContracts[contractId];
@@ -354,7 +354,7 @@ const TradingHubDisplay: React.FC = () => {
                 clearInterval(contractUpdateInterval.current);
             }
             globalObserver.emit('bot.stopped');
-            marketAnalyzer.stop();   
+            marketAnalyzer.stop();
             unsubscribe();
             globalObserver.unregisterAll('contract.status');
             globalObserver.unregisterAll('contract.settled');
@@ -371,29 +371,29 @@ const TradingHubDisplay: React.FC = () => {
                 const now = Date.now();
                 const timeSinceLastTrade = now - lastTradeTime.current;
                 const timeSinceSettlement = now - contractSettledTimeRef.current;
-
                 if (isTradeInProgress || 
                     timeSinceLastTrade < minimumTradeCooldown || 
-                    activeContractRef.current !== null) {                
+                    activeContractRef.current !== null) {
+
                     if (!waitingForSettlementRef.current) {
                         console.log(`Trade skipped: ${isTradeInProgress ? 'Trade in progress' : 
                             activeContractRef.current ? 'Waiting for previous contract settlement' : 'Cooldown period'}`);
                     }
-                    
+
                     if (activeContractRef.current) {
                         waitingForSettlementRef.current = true;
                     }
-                    
+
                     return;
                 }
-                
+
                 waitingForSettlementRef.current = false;
-                
+
                 if (timeSinceSettlement < 2000) {
                     console.log('Recent settlement, waiting for martingale calculation to complete...');
                     return;
                 }
-                
+
                 if (isAutoDifferActive) {
                     executeDigitDifferTrade();
                 } else if (isAutoOverUnderActive) {
@@ -406,7 +406,6 @@ const TradingHubDisplay: React.FC = () => {
                 tradingIntervalRef.current = null;
             }
         }
-
         return () => {
             if (tradingIntervalRef.current) {
                 clearInterval(tradingIntervalRef.current);
@@ -435,22 +434,24 @@ const TradingHubDisplay: React.FC = () => {
     };
 
     const handleSaveSettings = () => {
-        const validStake = Math.max(parseFloat(stake), parseFloat(MINIMUM_STAKE)).toFixed(2);
+        const validStake = stake === '' ? MINIMUM_STAKE : 
+            Math.max(parseFloat(stake) || parseFloat(MINIMUM_STAKE), parseFloat(MINIMUM_STAKE)).toFixed(2);
         console.log(`Saving stake settings from ${initialStake} to ${validStake}`);
         manageStake('init', { newValue: validStake });
-        
+
         if (validStake !== stake) {
             setStake(validStake);
         }
-        
-        const validMartingale = Math.max(parseFloat(martingale), 1).toFixed(1);
+
+        const validMartingale = martingale === '' ? '2' : 
+            Math.max(parseFloat(martingale) || 1, 1).toFixed(1);
         console.log(`Saving martingale settings from ${martingale} to ${validMartingale}`);
         manageMartingale('init', { newValue: validMartingale });
-        
+
         if (validMartingale !== martingale) {
             setMartingale(validMartingale);
         }
-        
+
         setIsSettingsOpen(false);
     };
 
@@ -504,19 +505,77 @@ const TradingHubDisplay: React.FC = () => {
                 barrier: barrier.toString(),
             };
 
-            const result = await doUntilDone(() => api_base.api.send({
+            // Create an array to store all trade promises
+            const trades = [];
+
+            // Standard trade for current account
+            const standardTradePromise = doUntilDone(() => api_base.api.send({
                 buy: 1,
                 price: opts.amount,
                 parameters: opts,
             }));
+            trades.push(standardTradePromise);
 
-            const buy = result?.buy;
-            if (buy) {
+            // Check copy trading settings from header
+            if (client?.loginid) {
+                const copyTradeEnabled = localStorage.getItem(`copytradeenabled_${client.loginid}`) === 'true';
+                if (copyTradeEnabled) {
+                    // Get tokens for copy trading
+                    const tokensStr = localStorage.getItem(`extratokens_${client.loginid}`);
+                    const tokens = tokensStr ? JSON.parse(tokensStr) : [];
+                    
+                    if (tokens.length > 0) {
+                        const copyOption = {
+                            buy_contract_for_multiple_accounts: '1',
+                            price: opts.amount,
+                            tokens,
+                            parameters: {
+                                ...opts
+                            }
+                        };
+                        trades.push(doUntilDone(() => api_base.api.send(copyOption)));
+                    }
+                    
+                    // Check if copying to real account is enabled
+                    const copyToReal = client.loginid?.startsWith('VR') && 
+                        localStorage.getItem(`copytoreal_${client.loginid}`) === 'true';
+                        
+                    if (copyToReal) {
+                        try {
+                            const accountsList = JSON.parse(localStorage.getItem('accountsList') || '{}');
+                            const realAccountToken = Object.entries(accountsList).find(([id]) => id.startsWith('CR'))?.[1];
+                            
+                            if (realAccountToken) {
+                                const realOption = {
+                                    buy_contract_for_multiple_accounts: '1',
+                                    price: opts.amount,
+                                    tokens: [realAccountToken],
+                                    parameters: {
+                                        ...opts
+                                    }
+                                };
+                                trades.push(doUntilDone(() => api_base.api.send(realOption)));
+                            }
+                        } catch (e) {
+                            console.error('Error copying to real account:', e);
+                        }
+                    }
+                }
+            }
+
+            // Execute all trades
+            const results = await Promise.all(trades);
+            const successfulTrades = results.filter(result => result && result.buy);
+
+            if (successfulTrades.length > 0) {
+                const result = successfulTrades[0]; // Use the main account result for UI updates
+                const buy = result.buy;
+                
                 const contractId = buy.contract_id;
                 console.log(`Trade purchased. Contract ID: ${contractId}, Stake: ${currentTradeStake}`);
                 activeContractRef.current = contractId;
                 setActiveContractId(contractId);
-                
+
                 setActiveContracts(prev => ({
                     ...prev,
                     [contractId]: { 
@@ -558,9 +617,13 @@ const TradingHubDisplay: React.FC = () => {
                     data: contract_info,
                     buy,
                 });
-                
+
                 transactions.onBotContractEvent(contract_info);
                 console.log(`Trade executed: ${opts.contract_type} with barrier ${opts.barrier} on ${opts.symbol}`);
+
+                if (successfulTrades.length > 1) {
+                    console.log(`Successfully placed ${successfulTrades.length} trades (including copy trades)`);
+                }
             } else {
                 console.error('Trade purchase failed: No buy response received');
                 globalObserver.emit('ui.log.error', 'Trade purchase failed: No buy response received');
@@ -602,7 +665,7 @@ const TradingHubDisplay: React.FC = () => {
             const strategy = tradeRec.strategy;
             const barrier = tradeRec.strategy === 'over' ? '2' : '7';
             const contract_type = tradeRec.strategy === 'over' ? 'DIGITOVER' : 'DIGITUNDER';
-            
+
             const tradeId = `${contract_type.toLowerCase()}_${symbol}_${barrier}_${Date.now()}`;
             setLastTradeId(tradeId);
             setTradeCount(prevCount => prevCount + 1);
@@ -610,11 +673,9 @@ const TradingHubDisplay: React.FC = () => {
 
             const currentTradeStake = manageStake('get');
             console.log(`Starting trade #${tradeCount + 1}: ${tradeId} with stake ${currentTradeStake} (consecutive losses: ${currentConsecutiveLossesRef.current})`);
-
             setCurrentBarrier(parseInt(barrier, 10));
             setCurrentSymbol(symbol);
             setCurrentStrategy(strategy);
-
             const opts = {
                 amount: +currentTradeStake,
                 basis: 'stake',
@@ -626,19 +687,71 @@ const TradingHubDisplay: React.FC = () => {
                 barrier,
             };
 
-            const result = await doUntilDone(() => api_base.api.send({
+            const trades = [];
+
+            const standardTradePromise = doUntilDone(() => api_base.api.send({
                 buy: 1,
                 price: opts.amount,
                 parameters: opts,
             }));
+            trades.push(standardTradePromise);
 
-            const buy = result?.buy;
-            if (buy) {
+            if (client?.loginid) {
+                const copyTradeEnabled = localStorage.getItem(`copytradeenabled_${client.loginid}`) === 'true';
+                if (copyTradeEnabled) {
+                    const tokensStr = localStorage.getItem(`extratokens_${client.loginid}`);
+                    const tokens = tokensStr ? JSON.parse(tokensStr) : [];
+                    
+                    if (tokens.length > 0) {
+                        const copyOption = {
+                            buy_contract_for_multiple_accounts: '1',
+                            price: opts.amount,
+                            tokens,
+                            parameters: {
+                                ...opts
+                            }
+                        };
+                        trades.push(doUntilDone(() => api_base.api.send(copyOption)));
+                    }
+                    
+                    const copyToReal = client.loginid?.startsWith('VR') && 
+                        localStorage.getItem(`copytoreal_${client.loginid}`) === 'true';
+                        
+                    if (copyToReal) {
+                        try {
+                            const accountsList = JSON.parse(localStorage.getItem('accountsList') || '{}');
+                            const realAccountToken = Object.entries(accountsList).find(([id]) => id.startsWith('CR'))?.[1];
+                            
+                            if (realAccountToken) {
+                                const realOption = {
+                                    buy_contract_for_multiple_accounts: '1',
+                                    price: opts.amount,
+                                    tokens: [realAccountToken],
+                                    parameters: {
+                                        ...opts
+                                    }
+                                };
+                                trades.push(doUntilDone(() => api_base.api.send(realOption)));
+                            }
+                        } catch (e) {
+                            console.error('Error copying to real account:', e);
+                        }
+                    }
+                }
+            }
+
+            const results = await Promise.all(trades);
+            const successfulTrades = results.filter(result => result && result.buy);
+
+            if (successfulTrades.length > 0) {
+                const result = successfulTrades[0];
+                const buy = result.buy;
+
                 const contractId = buy.contract_id;
                 console.log(`Trade purchased. Contract ID: ${contractId}, Stake: ${currentTradeStake}`);
                 activeContractRef.current = contractId;
                 setActiveContractId(contractId);
-                
+
                 setActiveContracts(prev => ({
                     ...prev,
                     [contractId]: { 
@@ -680,9 +793,13 @@ const TradingHubDisplay: React.FC = () => {
                     data: contract_info,
                     buy,
                 });
-                
+
                 transactions.onBotContractEvent(contract_info);
                 console.log(`Trade executed: ${opts.contract_type} with barrier ${opts.barrier} on ${opts.symbol}`);
+
+                if (successfulTrades.length > 1) {
+                    console.log(`Successfully placed ${successfulTrades.length} trades (including copy trades)`);
+                }
             } else {
                 console.error('Trade purchase failed: No buy response received');
                 globalObserver.emit('ui.log.error', 'Trade purchase failed: No buy response received');
@@ -701,18 +818,17 @@ const TradingHubDisplay: React.FC = () => {
     const startTrading = () => {
         prepareRunPanelForTradingHub();
         setIsContinuousTrading(true);
-        
+
         const persistedStake = localStorage.getItem('tradingHub_initialStake') || initialStake;
         console.log(`Starting trading with persisted stake: ${persistedStake}`);
-        
+
         setAppliedStake(persistedStake);
         currentStakeRef.current = persistedStake;
         setConsecutiveLosses(0);
         currentConsecutiveLossesRef.current = 0;
-        
         contractSettledTimeRef.current = 0;
         waitingForSettlementRef.current = false;
-        
+
         setTimeout(() => {
             if (isAutoDifferActive) executeDigitDifferTrade();
             else if (isAutoOverUnderActive) executeDigitOverTrade();
@@ -753,7 +869,7 @@ const TradingHubDisplay: React.FC = () => {
                     aria-label="Settings"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="24" height="24">
-                        <path d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8-6.5 30.6-15.1 44-25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1-9.8 15.5-20.2 22.1-31.2l4.7-8.1c6.1-11 11.4-22.4 15.8-34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80z" fill="currentColor"/>
+                        <path d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2-1.5 16.2-8.7 18.2-17.8l12.5 57.1c15.8-6.5 30.6-15.1 44-25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1-9.8 15.5-20.2 22.1-31.2l4.7-8.1c6.1-11 11.4-22.4 15.8-34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80z" fill="currentColor"/>
                     </svg>
                 </button>
             </div>
@@ -774,9 +890,8 @@ const TradingHubDisplay: React.FC = () => {
                         </div>
                     </div>
                 </Button>
-                
                 <Button 
-                    className={`strategy-button ${isAutoOverUnderActive ? 'active' : ''}`}
+                    className={`strategy-button ${isAutoOverUnderActive ? 'active' : ''}`} 
                     onClick={toggleAutoOverUnder}
                     variant={isAutoOverUnderActive ? 'primary' : 'secondary'}
                     size="lg"
@@ -792,7 +907,6 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </Button>
             </div>
-
             <div className="trade-button-container">
                 <button
                     className={`trade-button ${isStrategyActive ? 'enabled' : 'disabled'} ${isTrading ? 'trading' : ''}`}
@@ -818,7 +932,7 @@ const TradingHubDisplay: React.FC = () => {
                     <div className="pulse-ring"></div>
                 </button>
             </div>
-            
+
             <div className="trading-hub-display__stake-info">
                 <Text size="xs" weight="bold">Current Stake: {displayStake()}</Text>
                 {Object.keys(activeContracts).length > 0 && (
@@ -842,7 +956,7 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 )}
             </div>
-            
+
             {currentBarrier !== null && (
                 <div className="trading-hub-display__current-stake">
                     <span>Current {isAutoDifferActive ? 'Digit Differ' : 
@@ -867,7 +981,7 @@ const TradingHubDisplay: React.FC = () => {
                     )}
                 </div>
             )}
-            
+
             {isAutoOverUnderActive && !isAnalysisReady && (
                 <div className="trading-hub-display__analysis">
                     <Text size="xs" weight="bold">Analyzing Markets</Text>
@@ -877,7 +991,7 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </div>
             )}
-            
+
             {isAutoOverUnderActive && isAnalysisReady && recommendation && (
                 <div className="trading-hub-display__analysis">
                     <Text size="xs" weight="bold">Pattern Analysis</Text>
@@ -900,7 +1014,6 @@ const TradingHubDisplay: React.FC = () => {
                     </div>
                 </div>
             )}
-
             <div 
                 className={`trading-hub-modal-overlay ${isSettingsOpen ? 'active' : ''}`} 
                 onClick={() => setIsSettingsOpen(false)}
@@ -936,11 +1049,9 @@ const TradingHubDisplay: React.FC = () => {
                             <div className="settings-input-container">
                                 <input
                                     id="stake" 
-                                    type="number"
+                                    type="text"
                                     value={stake}
                                     onChange={(e) => manageStake('update', { newValue: e.target.value })}
-                                    min={MINIMUM_STAKE}
-                                    step="0.01"
                                     className="settings-input"
                                 />
                                 <div className="settings-input-suffix">USD</div>
@@ -959,17 +1070,16 @@ const TradingHubDisplay: React.FC = () => {
                             <div className="settings-input-container">
                                 <input
                                     id="martingale"
-                                    type="number"
+                                    type="text"
                                     value={martingale}
                                     onChange={(e) => manageMartingale('update', { newValue: e.target.value })}
-                                    min="1"
-                                    step="0.1"
                                     className="settings-input"
                                 />
                                 <div className="settings-input-suffix">×</div>
                             </div>
                             <div className="settings-input-hint">Multiplies stake after loss</div>
                         </div>
+                        
                         <div className="settings-divider">
                             <span>Trading Parameters</span>
                         </div>
