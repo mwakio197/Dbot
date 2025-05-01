@@ -4,6 +4,8 @@ import { Button, Text, Input } from '@deriv-com/ui';
 import classNames from 'classnames';
 import { ProposalOpenContract } from '@deriv/api-types';
 import './advanced-display.scss';
+import { observer as globalObserver } from '../../external/bot-skeleton/utils/observer';
+import { useStore } from '@/hooks/useStore';
 
 // Symbol type for multi-symbol analysis
 type SymbolType = 'R_10' | 'R_25' | 'R_50' | 'R_75' | 'R_100';
@@ -107,11 +109,15 @@ const MAX_CONSECUTIVE_LOSSES = 3; // Stop after 3 consecutive losses
 const PROFIT_TARGET = 50; // $50 profit target
 
 const AdvancedDisplay = observer(() => {
+    // Get transactions store
+    const { transactions } = useStore();
+
     // State
     const [isRunning, setIsRunning] = useState(false);
     const [status, setStatus] = useState('');
     const [referenceDigit, setReferenceDigit] = useState(5); // Default reference digit for over/under
     const [analysisCount, setAnalysisCount] = useState(120); // Default number of digits to analyze
+    const [sessionRunId, setSessionRunId] = useState<string>(`advanced_${Date.now()}`); // Add sessionRunId
 
     // Add settings modal state
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -493,7 +499,7 @@ const AdvancedDisplay = observer(() => {
         setTradeWs(ws);
     };
 
-    // Enhance the trade success handler to not add trades to history until sold
+    // Enhance the trade success handler to emit events for Run Panel, mirroring trading-hub-display
     const handleTradeSuccess = (data: TradeResponse) => {
         try {
             if (!data.buy || !data.buy.contract_id) {
@@ -504,82 +510,206 @@ const AdvancedDisplay = observer(() => {
                 return;
             }
 
+            const buy = data.buy;
+            const contractId = buy.contract_id;
+            const purchaseTime = Date.now();
+            const stake = Number(parseFloat(String(buy.buy_price)).toFixed(2));
+            const longcode = buy.longcode;
+
+            // --- Start: Extract Symbol from longcode ---
+            let parsedSymbol: SymbolType = 'R_10'; // Default fallback
+            const symbolMatch = longcode.match(/^([^_]+)/); // Match characters from the start until the first underscore
+            if (symbolMatch && ['R_10', 'R_25', 'R_50', 'R_75', 'R_100'].includes(symbolMatch[1])) {
+                parsedSymbol = symbolMatch[1] as SymbolType;
+                console.log(`Parsed symbol from longcode: ${parsedSymbol}`);
+            } else {
+                // Fallback to activeTradeSymbol if parsing fails, but log a warning
+                console.warn(`Could not parse symbol from longcode: ${longcode}. Falling back to activeTradeSymbol: ${activeTradeSymbol}`);
+                parsedSymbol = activeTradeSymbol || 'R_10'; // Use state as fallback
+            }
+            // --- End: Extract Symbol from longcode ---
+
             console.log('Processing trade success:', {
-                contractId: data.buy.contract_id,
-                price: data.buy.buy_price,
-                longcode: data.buy.longcode,
+                contractId: contractId,
+                price: stake,
+                longcode: buy.longcode,
+                parsedSymbol: parsedSymbol, // Log the symbol being used
             });
 
-            // Set trade status and notification
-            setTradeStatus('success');
-            setTradeMessage(`Trade successful! Contract ID: ${data.buy.contract_id} - ${data.buy.longcode}`);
+            // Determine contract type, barrier, and derived fields immediately
+            let contractType = 'UNKNOWN';
+            let barrier: string | undefined = undefined;
+            let duration = 1; // Default duration
+            let duration_unit = 't'; // Default duration unit
+            let tick_count = 1; // Default tick count for digit contracts
 
-            // Show notification for successful trade
+            // --- Start: Improved longcode parsing ---
+            if (longcode.includes('CALL')) contractType = 'CALL';
+            else if (longcode.includes('PUT')) contractType = 'PUT';
+            else if (longcode.includes('DIGITEVEN')) contractType = 'DIGITEVEN';
+            else if (longcode.includes('DIGITODD')) contractType = 'DIGITODD';
+            else if (longcode.includes('DIGITOVER')) {
+                contractType = 'DIGITOVER';
+                const match = longcode.match(/_(\d+)$/); // Barrier is usually at the end for digits
+                if (match) barrier = match[1];
+            } else if (longcode.includes('DIGITUNDER')) {
+                contractType = 'DIGITUNDER';
+                const match = longcode.match(/_(\d+)$/);
+                if (match) barrier = match[1];
+            } else if (longcode.includes('DIGITDIFF')) {
+                contractType = 'DIGITDIFF';
+                const match = longcode.match(/_(\d+)$/);
+                if (match) barrier = match[1];
+            } else if (longcode.includes('DIGITMATCH')) {
+                contractType = 'DIGITMATCH';
+                const match = longcode.match(/_(\d+)$/);
+                if (match) barrier = match[1];
+            }
+            // --- End: Improved longcode parsing ---
+
+            const durationMatch = longcode.match(/_(\d+)([t])$/); // Assuming only tick duration for digits
+            if (durationMatch) {
+                tick_count = parseInt(durationMatch[1], 10); // Digits usually use tick count
+                duration = tick_count; // Set duration based on ticks
+                duration_unit = durationMatch[2];
+            } else {
+                console.warn(`Could not parse duration/tick count from longcode: ${longcode}`);
+            }
+
+            // --- Start: Construct dependent fields AFTER parsing contractType ---
+            let parameter_type = `${contractType.toLowerCase()}_barrier`; // Now uses the parsed contractType
+            let display_name = getReadableContractType(contractType); // Now uses the parsed contractType
+            let display_message = `Contract parameter: ${display_name} ${barrier || ''} on ${parsedSymbol}`;
+
+            switch (contractType) { // Switch now uses the correctly parsed contractType
+                case 'DIGITDIFF':
+                    parameter_type = 'differ_barrier';
+                    display_name = 'Digit Differs';
+                    display_message = `Contract parameter: Differ from ${barrier} on ${parsedSymbol}`;
+                    break;
+                case 'DIGITOVER':
+                    parameter_type = 'over_barrier';
+                    display_name = 'Digit Over';
+                    display_message = `Contract parameter: Over ${barrier} on ${parsedSymbol}`;
+                    break;
+                case 'DIGITUNDER':
+                    parameter_type = 'under_barrier';
+                    display_name = 'Digit Under';
+                    display_message = `Contract parameter: Under ${barrier} on ${parsedSymbol}`;
+                    break;
+                case 'DIGITMATCH':
+                    parameter_type = 'match_barrier';
+                    display_name = 'Digit Matches';
+                    display_message = `Contract parameter: Matches ${barrier} on ${parsedSymbol}`;
+                    break;
+                case 'DIGITEVEN':
+                    parameter_type = 'even_barrier';
+                    display_name = 'Digit Even';
+                    display_message = `Contract parameter: Even on ${parsedSymbol}`;
+                    break;
+                case 'DIGITODD':
+                    parameter_type = 'odd_barrier';
+                    display_name = 'Digit Odd';
+                    display_message = `Contract parameter: Odd on ${parsedSymbol}`;
+                    break;
+                case 'CALL':
+                    parameter_type = 'rise_barrier';
+                    display_name = 'Rise';
+                    display_message = `Contract parameter: Rise on ${parsedSymbol}`;
+                    break;
+                case 'PUT':
+                    parameter_type = 'fall_barrier';
+                    display_name = `Fall`;
+                    display_message = `Contract parameter: Fall on ${parsedSymbol}`;
+                    break;
+            }
+            // --- End: Construct dependent fields ---
+
+            // Construct contract_info immediately with correct types
+            const contract_info = {
+                contract_id: contractId,
+                contract_type: contractType,
+                symbol: parsedSymbol, // Use the parsed symbol
+                underlying: parsedSymbol, // Use the parsed symbol
+                shortcode: ``,
+                longcode: buy.longcode,
+                run_id: sessionRunId,
+                buy_price: Number(stake),
+                currency: buy.currency || 'USD',
+                date_start: Math.floor(purchaseTime / 1000),
+                purchase_time: Math.floor(purchaseTime / 1000),
+                entry_tick_time: Math.floor(purchaseTime / 1000),
+                transaction_time: Math.floor(purchaseTime / 1000),
+                barrier: barrier,
+                barrier_display_value: barrier?.toString() || 'N/A',
+                contract_parameter: barrier?.toString() || 'N/A',
+                parameter_type: parameter_type,
+                duration: Number(duration),
+                duration_unit: duration_unit,
+                tick_count: Number(tick_count),
+                display_name: display_name,
+                display_message: display_message,
+                transaction_ids: { buy: Number(buy.transaction_id) },
+                status: 'bought',
+                is_sold: 0,
+            };
+
+            // Emit critical events for Run Panel first
+            globalObserver.emit('trading_hub.running');
+            globalObserver.emit('bot.contract', contract_info);
+            globalObserver.emit('bot.bot_ready');
+            globalObserver.emit('contract.purchase_received', contractId);
+            globalObserver.emit('contract.status', {
+                id: 'contract.purchase',
+                data: contract_info,
+                buy: buy,
+            });
+
+            // Update transactions store immediately after emitting
+            transactions.onBotContractEvent(contract_info);
+            console.log(`Trade executed via Advanced: ${contractType} with barrier ${barrier} on ${parsedSymbol}`);
+
+            // Now perform other state updates for this component's UI
+            setTradeStatus('success');
+            setTradeMessage(`Trade successful! Contract ID: ${contractId} - ${buy.longcode}`);
             showNotification(
                 `Trade placed successfully!`,
                 'success',
-                `Contract ID: ${data.buy.contract_id} - Amount: $${data.buy.buy_price}`
+                `Contract ID: ${contractId} - Amount: $${stake}`
             );
 
-            // Determine contract type from longcode
-            let contractType = 'UNKNOWN';
-            if (data.buy.longcode.includes('Call')) contractType = 'CALL';
-            else if (data.buy.longcode.includes('Put')) contractType = 'PUT';
-            else if (data.buy.longcode.includes('Even')) contractType = 'DIGITEVEN';
-            else if (data.buy.longcode.includes('Odd')) contractType = 'DIGITODD';
-            else if (data.buy.longcode.includes('Over')) contractType = 'DIGITOVER';
-            else if (data.buy.longcode.includes('Under')) contractType = 'DIGITUNDER';
-
-            // Extract barrier if present in longcode
-            let barrier = undefined;
-            if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
-                const match = data.buy.longcode.match(/(\d+)$/);
-                if (match) barrier = match[1];
-            }
-
-            const stake = Number(parseFloat(String(data.buy.buy_price)).toFixed(2));
-            const purchaseTime = Date.now();
-
-            // Only track the contract in activeContracts but don't add to trade history yet
-            // It will be added to trade history when the contract is sold
-            
-            // Store contract in activeContracts map
+            // Store contract in activeContracts map for internal tracking
+            const internalTradeData = {
+                ...contract_info,
+                id: tradeIdCounter.current++,
+                timestamp: purchaseTime,
+                status: 'pending',
+            };
             setActiveContracts((prev) => {
                 const updated = new Map(prev);
-                updated.set(data.buy.contract_id, {
-                    id: tradeIdCounter.current++,
-                    contractId: data.buy.contract_id,
-                    type: contractType,
-                    symbol: activeTradeSymbol || 'R_10',
-                    stake: stake,
-                    timestamp: purchaseTime,
-                    purchaseTime: purchaseTime,
-                    status: 'pending',
-                    barrier: barrier,
-                });
+                updated.set(contractId, internalTradeData);
                 return updated;
             });
 
-            // Ensure we subscribe to get contract updates
-            subscribeToContract(data.buy.contract_id, {
+            // Subscribe to contract updates (keep this for internal state management)
+            subscribeToContract(contractId, {
                 type: contractType,
-                symbol: activeTradeSymbol || 'R_10',
+                symbol: parsedSymbol, // Use parsedSymbol here too
                 stake: stake,
                 barrier: barrier,
-                timestamp: purchaseTime,
             });
 
-            // Explicitly request an update for this contract
+            // Explicitly request an update for this contract (keep this)
             if (tradeWs && tradeWs.readyState === WebSocket.OPEN) {
-                console.log(`Explicitly requesting updates for contract: ${data.buy.contract_id}`);
+                console.log(`Explicitly requesting updates for contract: ${contractId}`);
                 tradeWs.send(JSON.stringify({
                     proposal_open_contract: 1,
-                    contract_id: data.buy.contract_id,
+                    contract_id: contractId,
                     subscribe: 1
                 }));
             }
 
-            // Reset status after 5 seconds
+            // Reset status after 5 seconds (keep this)
             setTimeout(() => {
                 setTradeStatus('idle');
                 setTradeMessage('');
@@ -592,95 +722,192 @@ const AdvancedDisplay = observer(() => {
         }
     };
 
+    // Enhance the contract update handler to emit events for Run Panel, mirroring trading-hub-display
     const handleContractUpdate = (contract: any) => {
         console.log('Handling contract update:', contract);
 
         if (!contract?.contract_id) return;
 
-        // Store contract reference for each update
+        const contractId = contract.contract_id;
+
+        // Update internal activeContracts state
         if (contract.status === "open" || !contract.is_sold) {
-            console.log('Contract active:', contract.contract_id);
             setActiveContracts((prev) => {
                 const updated = new Map(prev);
-                // Update with latest contract details, preserving any existing data
-                updated.set(contract.contract_id, {
-                    ...(updated.get(contract.contract_id) || {}),
+                updated.set(contractId, {
+                    ...(updated.get(contractId) || {}),
                     type: contract.contract_type,
                     entrySpot: contract.entry_spot,
                     barrier: contract.barrier,
                     buyPrice: contract.buy_price,
                     timestamp: Date.now(),
                     status: 'pending',
+                    currentSpot: contract.current_spot,
+                    currentSpotTime: contract.current_spot_time,
+                    entryTime: contract.entry_tick_time,
+                    exitTime: contract.exit_tick_time,
+                    remainingTime: contract.date_expiry ? (contract.date_expiry - Math.floor(Date.now() / 1000)) : undefined,
+                    progress: contract.purchase_time && contract.date_expiry ?
+                        Math.min(100, ((Math.floor(Date.now() / 1000) - contract.purchase_time) / (contract.date_expiry - contract.purchase_time)) * 100)
+                        : undefined,
                 });
                 return updated;
             });
+            return;
         }
 
-        // Only process completed contracts for display
+        // Only process completed contracts for display and Run Panel update
         if (contract.is_sold) {
             console.log('Contract completed:', contract.contract_id, 'Profit:', contract.profit);
-            
-            // Set the completed contract to show in UI
+
+            if (processedContracts.current.has(contractId)) {
+                console.log(`Contract ${contractId} already processed, skipping duplicate settlement.`);
+                return;
+            }
+            processedContracts.current.add(contractId);
+
             setCompletedContract(contract);
-            
+
             setActiveContracts((prev) => {
                 const updated = new Map(prev);
-                const tradeData = updated.get(contract.contract_id);
-                if (tradeData) {
-                    const result = {
-                        id: tradeData.id || tradeIdCounter.current++,
-                        time: new Date().toLocaleTimeString(),
+                const initialTradeData = updated.get(contract.contract_id);
+
+                if (initialTradeData) {
+                    const isWin = Number(contract.profit) > 0;
+                    const status = isWin ? 'won' : 'lost';
+
+                    const result: TradeResult = {
+                        id: initialTradeData.id || tradeIdCounter.current++,
+                        contractId: contract.contract_id,
                         type: contract.contract_type,
-                        digit: contract.exit_tick_display_value?.slice(-1) || 'N/A',
+                        symbol: contract.underlying || initialTradeData.symbol || 'R_10',
                         entrySpot: contract.entry_tick_display_value,
                         exitSpot: contract.exit_tick_display_value,
-                        barrier: contract.barrier,
-                        buyPrice: contract.buy_price,
                         stake: contract.buy_price,
                         payout: contract.payout,
                         profit: contract.profit,
-                        isWin: Number(contract.profit) > 0,
-                        duration: ((contract.sell_time - contract.purchase_time) / 1000).toFixed(1),
-                        contractId: contract.contract_id,
-                        timestamp: tradeData.timestamp || Date.now(),
-                        status: Number(contract.profit) > 0 ? 'won' : 'lost',
-                        symbol: tradeData.symbol || 'R_10',
+                        isWin: isWin,
+                        timestamp: initialTradeData.timestamp || Date.now(),
+                        status: status,
+                        barrier: contract.barrier,
+                        duration: contract.sell_time && contract.purchase_time ? ((contract.sell_time - contract.purchase_time)).toFixed(1) : 'N/A',
+                        purchaseTime: contract.purchase_time * 1000,
+                        entryTime: contract.entry_tick_time * 1000,
+                        exitTime: contract.exit_tick_time * 1000,
                     };
 
                     console.log('Trade result processed:', result);
 
-                    // Now add to trade history since contract is sold
                     setTradeHistory((prevHistory) => [result, ...prevHistory.slice(0, 49)]);
 
-                    // Update total profit in localStorage using the constant
-                    const totalProfit = parseFloat(localStorage.getItem(STORAGE_KEYS.TOTAL_PROFIT) || '0') + parseFloat(result.profit);
-                    localStorage.setItem(STORAGE_KEYS.TOTAL_PROFIT, totalProfit.toString());
+                    const currentTotalProfit = parseFloat(localStorage.getItem(STORAGE_KEYS.TOTAL_PROFIT) || '0');
+                    const newTotalProfit = currentTotalProfit + parseFloat(String(result.profit || 0));
+                    localStorage.setItem(STORAGE_KEYS.TOTAL_PROFIT, newTotalProfit.toString());
 
                     if (result.isWin) {
                         setTotalWins((prev) => prev + 1);
                         setConsecutiveLosses(0);
+                        setConsecutiveWins((prev) => prev + 1);
                     } else {
                         setTotalLosses((prev) => prev + 1);
                         setConsecutiveLosses((prev) => prev + 1);
+                        setConsecutiveWins(0);
                     }
+                    setTotalProfit(newTotalProfit);
 
-                    setTotalProfit((prev) => prev + parseFloat(result.profit));
+                    const final_contract_info = {
+                        ...initialTradeData,
+                        contract_id: contract.contract_id,
+                        sell_price: Number(contract.sell_price),
+                        profit: Number(contract.profit),
+                        payout: Number(contract.payout),
+                        status: status,
+                        exit_tick_time: contract.exit_tick_time,
+                        sell_time: contract.sell_time,
+                        date_expiry: contract.date_expiry,
+                        entry_tick: contract.entry_tick,
+                        exit_tick: contract.exit_tick,
+                        entry_tick_display_value: contract.entry_tick_display_value,
+                        exit_tick_display_value: contract.exit_tick_display_value,
+                        transaction_ids: {
+                            buy: initialTradeData.transaction_ids?.buy || contract.transaction_ids?.buy,
+                            sell: contract.transaction_ids?.sell
+                        },
+                        is_expired: contract.is_expired ? 1 : 0,
+                        is_intraday: contract.is_intraday ? 1 : 0,
+                        is_path_dependent: contract.is_path_dependent ? 1 : 0,
+                        is_settleable: contract.is_settleable ? 1 : 0,
+                        is_sold: contract.is_sold ? 1 : 0,
+                        is_valid_to_sell: contract.is_valid_to_sell ? 1 : 0,
+                        profit_percentage: Number(contract.profit_percentage),
+                        shortcode: contract.shortcode || initialTradeData.shortcode,
+                        tick_count: contract.tick_count || initialTradeData.tick_count,
+                        validation_error: contract.validation_error,
+                        contract_type: contract.contract_type || initialTradeData.contract_type,
+                        currency: contract.currency || initialTradeData.currency,
+                        date_start: initialTradeData.date_start,
+                        symbol: contract.underlying || initialTradeData.symbol || 'R_10',
+                        underlying: contract.underlying || initialTradeData.underlying || 'R_10',
+                        barrier: contract.barrier !== undefined ? String(contract.barrier) : initialTradeData.barrier,
+                        barrier_display_value: contract.barrier !== undefined ? String(contract.barrier) : initialTradeData.barrier_display_value,
+                        contract_parameter: contract.barrier !== undefined ? String(contract.barrier) : initialTradeData.contract_parameter,
+                        parameter_type: initialTradeData.parameter_type,
+                        entry_tick_time: contract.entry_tick_time || initialTradeData.entry_tick_time,
+                        run_id: sessionRunId,
+                        display_name: initialTradeData.display_name,
+                        transaction_time: initialTradeData.transaction_time,
+                        longcode: contract.longcode || initialTradeData.longcode,
+                        display_message: initialTradeData.display_message,
+                    };
 
-                    // Check stop conditions
+                    globalObserver.emit('contract.status', { contract: final_contract_info });
+                    transactions.onBotContractEvent(final_contract_info);
+
                     if (consecutiveLosses + 1 >= MAX_CONSECUTIVE_LOSSES) {
                         console.warn('Stopping bot due to consecutive losses.');
                         setIsRunning(false);
+                        globalObserver.emit('bot.stopped');
                         showNotification(`Bot stopped: ${MAX_CONSECUTIVE_LOSSES} consecutive losses`, 'error');
-                    } else if (totalProfit + parseFloat(result.profit) >= PROFIT_TARGET) {
+                    } else if (newTotalProfit >= tradingSettings.takeProfit) {
                         console.warn('Stopping bot due to profit target reached.');
                         setIsRunning(false);
-                        showNotification(`Target profit of $${PROFIT_TARGET} reached!`, 'success');
+                        globalObserver.emit('bot.stopped');
+                        showNotification(`Target profit of $${tradingSettings.takeProfit} reached!`, 'success');
+                    } else if (newTotalProfit <= -tradingSettings.stopLoss) {
+                        console.warn('Stopping bot due to stop loss reached.');
+                        setIsRunning(false);
+                        globalObserver.emit('bot.stopped');
+                        showNotification(`Stop loss of $${tradingSettings.stopLoss} reached!`, 'error');
                     }
 
                     updated.delete(contract.contract_id);
+                } else {
+                     console.warn(`Received sold update for unknown or already processed contract ID: ${contract.contract_id}`);
                 }
                 return updated;
             });
+        }
+    };
+
+    // Modified function to start/stop the analysis
+    const toggleAnalysis = () => {
+        if (isRunning) {
+            setIsRunning(false);
+            setStatus('Analysis stopped');
+            globalObserver.emit('bot.stopped');
+        } else {
+            setSessionRunId(`advanced_${Date.now()}`);
+            setTotalProfit(0);
+            setTotalWins(0);
+            setTotalLosses(0);
+            setConsecutiveLosses(0);
+            setConsecutiveWins(0);
+            setTradeHistory([]);
+            setActiveContracts(new Map());
+            setCompletedContract(null);
+            processedContracts.current.clear(); // Clear the processed set for the new session
+            setIsRunning(true);
+            setStatus('Analysis started - monitoring market patterns');
         }
     };
 
@@ -696,7 +923,7 @@ const AdvancedDisplay = observer(() => {
                         {Array.from(activeContracts.entries()).map(([id, data]) => (
                             <div key={id} className="pending-contract-item">
                                 <span className="contract-id">#{id}</span>
-                                <span className="contract-type">{data.type}</span>
+                                <span className="contract-type">{data.display_name || data.type}</span>
                                 <span className="contract-time">{new Date(data.timestamp).toLocaleTimeString()}</span>
                             </div>
                         ))}
@@ -776,21 +1003,20 @@ const AdvancedDisplay = observer(() => {
                             {/* Show completed trades with filter */}
                             {tradeHistory
                                 .filter(trade => trade.status === 'won' || trade.status === 'lost')
-                                .map((trade) => (
+                                .map((trade, index) => (
                                     <div
                                         key={trade.contractId || trade.id}
-                                        className={`trade-item ${trade.isWin ? 'win' : 'loss'}`}
-                                        style={{ animationDelay: `${Math.random() * 0.3}s` }}
+                                        className={`trade-item ${trade.isWin ? 'win' : 'loss'} ${index === 0 ? 'newly-completed' : ''}`}
                                     >
                                         <div className="trade-item-header">
                                             <div className="trade-symbol">{getReadableContractType(trade.type)}</div>
-                                            <div className="trade-time">{trade.time || new Date(trade.timestamp).toLocaleTimeString()}</div>
+                                            <div className="trade-time">{trade.purchaseTime ? new Date(trade.purchaseTime).toLocaleTimeString() : new Date(trade.timestamp).toLocaleTimeString()}</div>
                                         </div>
                                         <div className="trade-item-details">
                                             <div className="trade-detail">
                                                 <span className="label">Stake:</span>
                                                 <span className="value">
-                                                    {formatMoney(trade.stake || trade.buyPrice || 0)}
+                                                    {formatMoney(trade.stake || 0)}
                                                 </span>
                                             </div>
                                             <div className="trade-detail">
@@ -1562,17 +1788,6 @@ const AdvancedDisplay = observer(() => {
             console.error('Error placing trade:', error);
             setTradeStatus('error');
             setTradeMessage('Error preparing trade request');
-        }
-    };
-
-    // Modified function to start/stop the analysis
-    const toggleAnalysis = () => {
-        if (isRunning) {
-            setIsRunning(false);
-            setStatus('Analysis stopped');
-        } else {
-            setIsRunning(true);
-            setStatus('Analysis started - monitoring market patterns');
         }
     };
 
