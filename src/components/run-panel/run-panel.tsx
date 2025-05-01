@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import Journal from '@/components/journal';
@@ -255,17 +255,28 @@ const RunPanel = observer(() => {
     const { total_payout, total_profit, total_stake, won_contracts, lost_contracts, number_of_runs } = statistics;
     const { BOT_BUILDER, CHART, AUTO, SIGNALS, ANALYSIS_TOOL, TRADING_HUB } = DBOT_TABS;
 
-    React.useEffect(() => {
+    useEffect(() => {
         onMount();
         return () => onUnmount();
     }, [onMount, onUnmount]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!isDesktop) {
             toggleDrawer(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        console.log('Transactions statistics updated:', {
+            won_contracts,
+            lost_contracts,
+            total_profit,
+            total_stake,
+            total_payout,
+            number_of_runs
+        });
+    }, [won_contracts, lost_contracts, total_profit, total_stake, total_payout, number_of_runs]);
 
     const content = (
         <DrawerContent
@@ -301,7 +312,7 @@ const RunPanel = observer(() => {
 
     return (
         <>
-            <div cassName={!isDesktop && is_drawer_open ? 'run-panel__container--mobile' : 'run-panel'}>
+            <div className={!isDesktop && is_drawer_open ? 'run-panel__container--mobile' : 'run-panel'}>
                 <Drawer
                     anchor='right'
                     className={classNames('run-panel', {
@@ -320,6 +331,7 @@ const RunPanel = observer(() => {
                 </Drawer>
                 {!isDesktop && <MobileDrawerFooter />}
             </div>
+            
             <SelfExclusion onRunButtonClick={onRunButtonClick} />
             <StatisticsInfoModal
                 is_mobile={!isDesktop}

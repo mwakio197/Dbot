@@ -170,6 +170,70 @@
             min-width: 8rem;
         }
     }
+
+    &__trade-results-container {
+        padding: 16px;
+        border-top: 1px solid var(--border-normal);
+        margin-top: 16px;
+    }
+
+    &__trade-results-header {
+        margin-bottom: 8px;
+    }
+
+    &__trade-result {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        margin-bottom: 4px;
+        border-radius: 4px;
+        background-color: var(--general-section-1);
+        
+        &.pending {
+            background-color: var(--general-hover);
+        }
+
+        &.profit--positive {
+            border-left: 3px solid var(--status-success);
+        }
+        
+        &.profit--negative {
+            border-left: 3px solid var(--status-danger);
+        }
+    }
+
+    &__trade-result-details {
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__trade-result-type {
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    &__trade-result-status {
+        font-size: 11px;
+        color: var(--text-less-prominent);
+    }
+
+    &__trade-result-profit {
+        font-size: 14px;
+        font-weight: bold;
+        
+        &.pending {
+            color: var(--text-less-prominent);
+        }
+        
+        &.profit--positive {
+            color: var(--status-success);
+        }
+        
+        &.profit--negative {
+            color: var(--status-danger);
+        }
+    }
 }
 
 .controls {

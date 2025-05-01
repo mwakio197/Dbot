@@ -112,12 +112,23 @@ export default class TransactionsStore {
             ...data,
             is_completed,
             run_id,
-            date_start: formatDate(data.date_start, 'YYYY-M-D HH:mm:ss [GMT]'),
-            entry_tick: data.entry_tick_display_value,
-            entry_tick_time: data.entry_tick_time && formatDate(data.entry_tick_time, 'YYYY-M-D HH:mm:ss [GMT]'),
-            exit_tick: data.exit_tick_display_value,
-            exit_tick_time: data.exit_tick_time && formatDate(data.exit_tick_time, 'YYYY-M-D HH:mm:ss [GMT]'),
+            // Use existing values if available, otherwise format them
+            date_start: data.date_start || formatDate(data.date_start, 'YYYY-M-D HH:mm:ss [GMT]'),
+            entry_tick: data.entry_tick_display_value || data.entry_tick,
+            entry_tick_time: data.entry_tick_time
+                ? typeof data.entry_tick_time === 'string'
+                    ? data.entry_tick_time
+                    : formatDate(data.entry_tick_time, 'YYYY-M-D HH:mm:ss [GMT]')
+                : undefined,
+            exit_tick: data.exit_tick_display_value || data.exit_tick,
+            exit_tick_time: data.exit_tick_time
+                ? typeof data.exit_tick_time === 'string'
+                    ? data.exit_tick_time
+                    : formatDate(data.exit_tick_time, 'YYYY-M-D HH:mm:ss [GMT]')
+                : undefined,
             profit: is_completed ? data.profit : 0,
+            // Add display parameters to ensure immediate rendering
+            display_name: data.display_name || this.getContractTypeName(data.contract_type),
         };
 
         if (!this.elements[current_account]) {
@@ -167,6 +178,22 @@ export default class TransactionsStore {
         }
 
         this.elements = { ...this.elements }; // force update
+    }
+
+    // Helper to get readable contract type names
+    getContractTypeName(contract_type: string | undefined): string {
+        if (!contract_type) return 'Unknown';
+
+        const contract_types: Record<string, string> = {
+            DIGITDIFF: 'Digit Differs',
+            DIGITOVER: 'Digit Over',
+            DIGITUNDER: 'Digit Under',
+            DIGITEVEN: 'Digit Even',
+            DIGITODD: 'Digit Odd',
+            DIGITMAT: 'Digit Matches',
+        };
+
+        return contract_types[contract_type] || contract_type;
     }
 
     clear() {

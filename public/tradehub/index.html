@@ -3,25 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradeHub Dashboard</title>
+    <title>Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="/deriv-logo.png" />
     <link rel="stylesheet" href="tradehub/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script src="tradehub/autodiffer.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
         <aside class="side-menu">
             <div class="logo">
-                <img src="/deriv-logo.png" alt="TradeHub Logo">
-                <h2>TradeHub</h2>
+                <img src="/deriv-logo.png" alt="Logo">
+                <h2>Dashboard</h2>
             </div>
             <button class="hide-menu">
                 <i class="fas fa-times"></i>
             </button>
             <nav>
                 <a href="#" data-page="dashboard" class="nav-link active"><i class="fas fa-home"></i> Dashboard</a>
-                <a href="#" data-page="autodiffer" class="nav-link"><i class="fas fa-robot"></i> Auto Differ</a>
                 <a href="#" data-page="settings" class="nav-link"><i class="fas fa-cog"></i> Settings</a>
             </nav>
             <button class="auth-button">
@@ -36,169 +34,13 @@
                             <i class="fas fa-cog"></i>
                         </button>
                         <div class="dashboard-cards">
-                            <div class="dashboard-card" data-page="autodiffer">
-                                <h3>Auto Differ</h3>
-                                <div class="stars">
-                                    <i class="fas fa-star"></i>
-                                    <i class="fas fa-star"></i>
-                                    <i class="fas fa-star"></i>
-                                    <i class="fas fa-star"></i>
-                                    <i class="fas fa-star"></i>
-                                </div>
-                                <p>Automate your trading with advanced strategies and risk management tools.</p>
+                            <div class="dashboard-card empty-card">
+                                <h3>Welcome</h3>
+                                <p>Trading hub has been removed.</p>
                             </div>
                         </div>
                     </div>
-                    <div id="autodiffer-page" class="page">
-                        <button class="back-button" data-page="dashboard">
-                            <i class="fas fa-arrow-left"></i> Back to Dashboard
-                        </button>
-                        <div class="account-balance-display">
-                            <div class="balance-card">
-                                <span class="balance-label">Account Balance</span>
-                                <span class="balance-amount" id="accountBalance">$0.00</span>
-                            </div>
-                        </div>
-                        <div class="auto-differ-container">
-                            <div class="strategy-settings">
-                                <h3>Strategy Configuration</h3>
-                                <div class="settings-form">
-                                    <div class="settings-section">
-                                        <h4>Trade Parameters</h4>
-                                        <div class="form-group">
-                                            <label for="investment">Investment Amount:</label>
-                                            <div class="input-with-controls">
-                                                <input type="number" id="investment" min="1" step="1" value="10">
-                                                <div class="amount-controls">
-                                                    <button class="amount-btn" data-amount="10">$10</button>
-                                                    <button class="amount-btn" data-amount="50">$50</button>
-                                                    <button class="amount-btn" data-amount="100">$100</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="market">Select Market:</label>
-                                            <select id="market">
-                                                <optgroup label="Volatility Indices">
-                                                    <option value="R_10">Volatility 10 Index</option>
-                                                    <option value="R_25">Volatility 25 Index</option>
-                                                    <option value="R_50">Volatility 50 Index</option>
-                                                    <option value="R_75">Volatility 75 Index</option>
-                                                    <option value="R_100">Volatility 100 Index</option>
-                                                </optgroup>
-                                                <optgroup label="1 Second Indices">
-                                                    <option value="1HZ10V">Volatility 10 (1s) Index</option>
-                                                    <option value="1HZ25V">Volatility 25 (1s) Index</option>
-                                                    <option value="1HZ50V">Volatility 50 (1s) Index</option>
-                                                    <option value="1HZ75V">Volatility 75 (1s) Index</option>
-                                                    <option value="1HZ100V">Volatility 100 (1s) Index</option>
-                                                <option value="SHUFFLE">Shuffle</option>
-                                                </optgroup>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="settings-section">
-                                        <h4>Risk Management</h4>
-                                        <div class="form-group">
-                                            <label for="takeProfit">Take Profit:</label>
-                                            <div class="input-with-slider">
-                                                <input type="range" id="takeProfitSlider" min="1" max="1000" step="0.5" value="2" oninput="document.getElementById('takeProfit').value = this.value">
-                                                <input type="number" id="takeProfit" min="0.5" step="0.5" value="2" oninput="document.getElementById('takeProfitSlider').value = this.value">
-                                                <span class="unit">%</span>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="stopLoss">Stop Loss:</label>
-                                            <div class="input-with-slider">
-                                                <input type="range" id="stopLossSlider" min="1" max="500" step="0.5" value="1" oninput="document.getElementById('stopLoss').value = this.value">
-                                                <input type="number" id="stopLoss" min="0.5" step="0.5" value="1" oninput="document.getElementById('stopLossSlider').value = this.value">
-                                                <span class="unit">%</span>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="maxTrades">Max Concurrent Trades:</label>
-                                            <input type="number" id="maxTrades" min="1" max="5" value="1">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="martingaleMultiplier">Martingale Multiplier:</label>
-                                            <input type="number" id="martingaleMultiplier" min="1" step="0.1" value="2">
-                                        </div>
-                                    </div>
-
-                                    <div class="settings-section">
-                                        <h4>Loss Recovery Strategy</h4>
-                                        <div class="form-group">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" id="tradeOver2"> Trade Over 2 After Loss
-                                            </label>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="checkbox-label">
-                                                <input type="checkbox" id="tradeUnder7"> Trade Under 7 After Loss
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div class="bot-controls">
-                                        <button id="startBot" class="bot-control">
-                                            <i class="fas fa-play"></i> Start Bot
-                                        </button>
-                                        <button id="resetStats" class="secondary-btn">
-                                            <i class="fas fa-redo"></i> Reset Stats
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="trading-stats">
-                                <h3>Performance Analytics</h3>
-                                <div class="stats-grid">
-                                    <div class="stat-card">
-                                        <span class="stat-label">Total Trades</span>
-                                        <span class="stat-value" id="totalTrades">0</span>
-                                    </div>
-                                    <div class="stat-card">
-                                        <span class="stat-label">Win Rate</span>
-                                        <span class="stat-value" id="winRate">0%</span>
-                                    </div>
-                                    <div class="stat-card">
-                                        <span class="stat-label">Profit/Loss</span>
-                                        <span class="stat-value" id="pnl">$0.00</span>
-                                    </div>
-                                    <div class="stat-card">
-                                        <span class="stat-label">Active Trades</span>
-                                        <span class="stat-value" id="activeTrades">0</span>
-                                    </div>
-                                    <div class="stat-card">
-                                        <span class="stat-label">Success Streak</span>
-                                        <span class="stat-value" id="streak">0</span>
-                                    </div>
-                                    <div class="stat-card">
-                                        <span class="stat-label">Run Time</span>
-                                        <span class="stat-value" id="runtime">00:00:00</span>
-                                    </div>
-                                </div>
-                                <div class="trade-log">
-                                    <div class="log-header">
-                                        <h4>Trading Activity</h4>
-                                        <button id="clearLog" class="clear-btn">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                    <div id="tradeDetails" class="trade-details-container">
-                                        <!-- Simplified trade details will appear here -->
-                                    </div>
-                                    <div class="notification-summary">
-                                        <h4>Summary</h4>
-                                        <ul id="notificationSummary">
-                                            <!-- Notification summaries will appear here -->
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    
                     <div id="settings-page" class="page">
                         <button class="back-button" data-page="dashboard">
                             <i class="fas fa-arrow-left"></i> Back to Dashboard
@@ -219,60 +61,7 @@
                                             <input type="checkbox" id="notifications"> Enable Notifications
                                         </label>
                                     </div>
-                                    <div class="form-group">
-                                        <label for="language">Language:</label>
-                                        <select id="language">
-                                            <option value="en">English</option>
-                                            <option value="es">Spanish</option>
-                                            <option value="fr">French</option>
-                                            <option value="de">German</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="soundAlerts"> Enable Sound Alerts
-                                        </label>
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="tradeConfirmation"> Require Trade Confirmation
-                                        </label>
-                                    </div>
                                     <button type="submit" class="primary-btn">Apply Settings</button>
-                                </form>
-                            </div>
-                            <div class="trading-preferences">
-                                <h3>Trading Preferences</h3>
-                                <form id="tradingPreferencesForm">
-                                    <div class="form-group">
-                                        <label for="defaultInvestment">Default Investment Amount:</label>
-                                        <input type="number" id="defaultInvestment" min="1" step="1" value="10">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="defaultMarket">Default Market:</label>
-                                        <select id="defaultMarket">
-                                            <optgroup label="Volatility Indices">
-                                                <option value="R_10">Volatility 10 Index</option>
-                                                <option value="R_25">Volatility 25 Index</option>
-                                                <option value="R_50">Volatility 50 Index</option>
-                                                <option value="R_75">Volatility 75 Index</option>
-                                                <option value="R_100">Volatility 100 Index</option>
-                                            </optgroup>
-                                            <optgroup label="1 Second Indices">
-                                                <option value="1HZ10V">Volatility 10 (1s) Index</option>
-                                                <option value="1HZ25V">Volatility 25 (1s) Index</option>
-                                                <option value="1HZ50V">Volatility 50 (1s) Index</option>
-                                                <option value="1HZ75V">Volatility 75 (1s) Index</option>
-                                                <option value="1HZ100V">Volatility 100 (1s) Index</option>
-                                            </optgroup>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="checkbox-label">
-                                            <input type="checkbox" id="autoStart"> Enable Auto Start
-                                        </label>
-                                    </div>
-                                    <button type="submit" class="primary-btn">Save Preferences</button>
                                 </form>
                             </div>
                         </div>
@@ -298,60 +87,7 @@
                                         <input type="checkbox" id="notifications"> Enable Notifications
                                     </label>
                                 </div>
-                                <div class="form-group">
-                                    <label for="language">Language:</label>
-                                    <select id="language">
-                                        <option value="en">English</option>
-                                        <option value="es">Spanish</option>
-                                        <option value="fr">French</option>
-                                        <option value="de">German</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="soundAlerts"> Enable Sound Alerts
-                                    </label>
-                                </div>
-                                <div class="form-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="tradeConfirmation"> Require Trade Confirmation
-                                    </label>
-                                </div>
                                 <button type="submit" class="primary-btn">Apply Settings</button>
-                            </form>
-                        </div>
-                        <div class="trading-preferences">
-                            <h3>Trading Preferences</h3>
-                            <form id="tradingPreferencesForm">
-                                <div class="form-group">
-                                    <label for="defaultInvestment">Default Investment Amount:</label>
-                                    <input type="number" id="defaultInvestment" min="1" step="1" value="10">
-                                </div>
-                                <div class="form-group">
-                                    <label for="defaultMarket">Default Market:</label>
-                                    <select id="defaultMarket">
-                                        <optgroup label="Volatility Indices">
-                                            <option value="R_10">Volatility 10 Index</option>
-                                            <option value="R_25">Volatility 25 Index</option>
-                                            <option value="R_50">Volatility 50 Index</option>
-                                            <option value="R_75">Volatility 75 Index</option>
-                                            <option value="R_100">Volatility 100 Index</option>
-                                        </optgroup>
-                                        <optgroup label="1 Second Indices">
-                                            <option value="1HZ10V">Volatility 10 (1s) Index</option>
-                                            <option value="1HZ25V">Volatility 25 (1s) Index</option>
-                                            <option value="1HZ50V">Volatility 50 (1s) Index</option>
-                                            <option value="1HZ75V">Volatility 75 (1s) Index</option>
-                                            <option value="1HZ100V">Volatility 100 (1s) Index</option>
-                                        </optgroup>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="autoStart"> Enable Auto Start
-                                    </label>
-                                </div>
-                                <button type="submit" class="primary-btn">Save Preferences</button>
                             </form>
                         </div>
                     </div>
@@ -359,8 +95,6 @@
             </div>
         </main>
     </div>
-    <script src="tradehub/websocket-service.js"></script>
-    <script src="tradehub/tradehub.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const navLinks = document.querySelectorAll('.nav-link');
@@ -385,240 +119,18 @@
                     });
                 });
             });
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
+            
+            // Basic platform settings
             const themeSelect = document.getElementById('theme');
             const body = document.body;
-            const platformSettingsForm = document.getElementById('platformSettingsForm');
-            const tradingPreferencesForm = document.getElementById('tradingPreferencesForm');
-
-            // Apply the selected theme
+            
             themeSelect.addEventListener('change', (e) => {
                 const theme = e.target.value;
                 body.classList.toggle('dark-theme', theme === 'dark');
                 body.classList.toggle('light-theme', theme === 'light');
             });
-
-            // Initialize theme based on default value
+            
             body.classList.add(themeSelect.value === 'dark' ? 'dark-theme' : 'light-theme');
-
-            // Handle platform settings form submission
-            platformSettingsForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const notificationsEnabled = document.getElementById('notifications').checked;
-                const soundAlertsEnabled = document.getElementById('soundAlerts').checked;
-                const tradeConfirmationRequired = document.getElementById('tradeConfirmation').checked;
-                console.log('Platform settings saved:', { notificationsEnabled, soundAlertsEnabled, tradeConfirmationRequired });
-            });
-
-            // Handle trading preferences form submission
-            tradingPreferencesForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const defaultInvestment = parseFloat(document.getElementById('defaultInvestment').value);
-                const defaultMarket = document.getElementById('defaultMarket').value;
-                const autoStartEnabled = document.getElementById('autoStart').checked;
-                console.log('Trading preferences saved:', { defaultInvestment, defaultMarket, autoStartEnabled });
-            });
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const platformSettingsForm = document.getElementById('platformSettingsForm');
-            const tradingPreferencesForm = document.getElementById('tradingPreferencesForm');
-
-            // Load saved settings from localStorage
-            const loadSettings = () => {
-                const platformSettings = JSON.parse(localStorage.getItem('platformSettings')) || {};
-                const tradingPreferences = JSON.parse(localStorage.getItem('tradingPreferences')) || {};
-
-                document.getElementById('theme').value = platformSettings.theme || 'light';
-                document.getElementById('notifications').checked = platformSettings.notifications || false;
-                document.getElementById('soundAlerts').checked = platformSettings.soundAlerts || false;
-                document.getElementById('tradeConfirmation').checked = platformSettings.tradeConfirmation || false;
-
-                document.getElementById('defaultInvestment').value = tradingPreferences.defaultInvestment || 10;
-                document.getElementById('defaultMarket').value = tradingPreferences.defaultMarket || 'R_10';
-                document.getElementById('autoStart').checked = tradingPreferences.autoStart || false;
-
-                // Apply theme
-                document.body.classList.toggle('dark-theme', platformSettings.theme === 'dark');
-                document.body.classList.toggle('light-theme', platformSettings.theme === 'light');
-            };
-
-            // Save platform settings
-            platformSettingsForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const platformSettings = {
-                    theme: document.getElementById('theme').value,
-                    notifications: document.getElementById('notifications').checked,
-                    soundAlerts: document.getElementById('soundAlerts').checked,
-                    tradeConfirmation: document.getElementById('tradeConfirmation').checked
-                };
-                localStorage.setItem('platformSettings', JSON.stringify(platformSettings));
-                alert('Platform settings saved!');
-            });
-
-            // Save trading preferences
-            tradingPreferencesForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const tradingPreferences = {
-                    defaultInvestment: parseFloat(document.getElementById('defaultInvestment').value),
-                    defaultMarket: document.getElementById('defaultMarket').value,
-                    autoStart: document.getElementById('autoStart').checked
-                };
-                localStorage.setItem('tradingPreferences', JSON.stringify(tradingPreferences));
-                alert('Trading preferences saved!');
-            });
-
-            // Load settings on page load
-            loadSettings();
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const platformSettingsForm = document.getElementById('platformSettingsForm');
-
-            // Load saved settings from localStorage
-            const loadSettings = () => {
-                const platformSettings = JSON.parse(localStorage.getItem('platformSettings')) || {};
-                document.getElementById('notifications').checked = platformSettings.notifications || false;
-            };
-
-            // Save platform settings
-            platformSettingsForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const platformSettings = {
-                    notifications: document.getElementById('notifications').checked,
-                };
-                localStorage.setItem('platformSettings', JSON.stringify(platformSettings));
-                alert('Platform settings saved!');
-            });
-
-            // Load settings on page load
-            loadSettings();
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const pageButtons = document.querySelectorAll('.page-button');
-            const navLinks = document.querySelectorAll('.nav-link');
-            const pages = document.querySelectorAll('.page');
-
-            pageButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const targetPage = button.getAttribute('data-page');
-
-                    // Update active link
-                    navLinks.forEach(nav => nav.classList.remove('active'));
-                    document.querySelector(`.nav-link[data-page="${targetPage}"]`).classList.add('active');
-
-                    // Show the target page and hide others
-                    pages.forEach(page => {
-                        if (page.id === `${targetPage}-page`) {
-                            page.classList.add('active');
-                        } else {
-                            page.classList.remove('active');
-                        }
-                    });
-                });
-            });
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const backButtons = document.querySelectorAll('.back-button');
-            const navLinks = document.querySelectorAll('.nav-link');
-            const pages = document.querySelectorAll('.page');
-
-            backButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const targetPage = button.getAttribute('data-page');
-
-                    // Update active link
-                    navLinks.forEach(nav => nav.classList.remove('active'));
-                    document.querySelector(`.nav-link[data-page="${targetPage}"]`).classList.add('active');
-
-                    // Show the target page and hide others
-                    pages.forEach(page => {
-                        if (page.id === `${targetPage}-page`) {
-                            page.classList.add('active');
-                        } else {
-                            page.classList.remove('active');
-                        }
-                    });
-                });
-            });
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const dashboardCards = document.querySelectorAll('.dashboard-card');
-            const navLinks = document.querySelectorAll('.nav-link');
-            const pages = document.querySelectorAll('.page');
-
-            dashboardCards.forEach(card => {
-                card.addEventListener('click', () => {
-                    const targetPage = card.getAttribute('data-page');
-
-                    // Update active link
-                    navLinks.forEach(nav => nav.classList.remove('active'));
-                    document.querySelector(`.nav-link[data-page="${targetPage}"]`).classList.add('active');
-
-                    // Show the target page and hide others
-                    pages.forEach(page => {
-                        if (page.id === `${targetPage}-page`) {
-                            page.classList.add('active');
-                        } else {
-                            page.classList.remove('active');
-                        }
-                    });
-                });
-            });
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const settingsIcon = document.querySelector('.nav-link[data-page="settings"]');
-            const settingsModal = document.getElementById('settings-modal');
-            const closeModal = document.querySelector('.close-modal');
-
-            settingsIcon.addEventListener('click', (e) => {
-                e.preventDefault();
-                settingsModal.style.display = 'block';
-            });
-
-            closeModal.addEventListener('click', () => {
-                settingsModal.style.display = 'none';
-            });
-
-            window.addEventListener('click', (e) => {
-                if (e.target === settingsModal) {
-                    settingsModal.style.display = 'none';
-                }
-            });
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const settingsIcon = document.getElementById('settings-icon');
-            const settingsModal = document.getElementById('settings-modal');
-            const closeModal = document.querySelector('.close-modal');
-
-            settingsIcon.addEventListener('click', () => {
-                settingsModal.style.display = 'block';
-            });
-
-            closeModal.addEventListener('click', () => {
-                settingsModal.style.display = 'none';
-            });
-
-            window.addEventListener('click', (e) => {
-                if (e.target === settingsModal) {
-                    settingsModal.style.display = 'none';
-                }
-            });
         });
     </script>
 </body>
