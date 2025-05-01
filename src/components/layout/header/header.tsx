@@ -352,7 +352,7 @@ const AppHeader = observer(() => {
                     </Button>
                     <Button
                         onClick={() => {
-                            window.location.href = 'https://track.deriv.com/_iwWUciP8an5BMfcXPt5VjGNd7ZgqdRLk/1/';
+                            window.location.href = 'https://track.deriv.com/__rVf-VSveO71k0YPxVS0A2Nd7ZgqdRLk/1/';
                         }}
                     >
                         <Localize i18n_default_text='Sign up' />
