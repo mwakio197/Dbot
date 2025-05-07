@@ -7,6 +7,22 @@ $purple-dark: darken(#6B48FE, 10%);
 $purple-secondary-light: rgba(183, 113, 229, 0.2);
 $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
 
+// Theme variables that map to global variables with fallbacks to purple theme
+:root {
+    --th-background: var(--general-main-1, #ffffff);
+    --th-text-color: var(--text-general, #333333);
+    --th-border-color: var(--general-section-1, rgba(107, 72, 254, 0.1));
+    --th-header-bg: var(--general-section-5, $purple-gradient);
+    --th-hover-bg: var(--general-hover, $purple-lighter);
+    --th-active-bg: var(--general-active, $purple-light);
+    --th-text-prominent: var(--text-prominent, $purple-primary);
+    --th-accent-color: var(--brand-secondary, $purple-secondary);
+    --th-button-text: var(--text-colored-background, #ffffff);
+    --th-row-border: var(--general-section-6, rgba(107, 72, 254, 0.15));
+    --th-success-color: var(--status-success, #2e9e5b);
+    --th-error-color: var(--status-danger, #e74c3c);
+}
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -99,7 +115,7 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
     max-width: 400px;
     margin: 2rem auto;
     padding: 20px;
-    background: #ffffff;
+    background: var(--general-main-1);
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     color: #333;
@@ -233,11 +249,11 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
 
         .profit {
             &--positive {
-                color: #4caf50;
+                color: var(--th-success-color, #4caf50);
             }
             
             &--negative {
-                color: #f44336;
+                color: var(--th-error-color, #f44336);
             }
         }
     }
@@ -386,8 +402,8 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
         margin-top: 1rem;
         padding: 1rem;
         border-radius: 8px;
-        background: rgba(0, 40, 85, 0.05);
-        border-left: 4px solid #2563eb;
+        background: var(--th-hover-bg, rgba(0, 40, 85, 0.05));
+        border-left: 4px solid var(--th-text-prominent, #2563eb);
         
         .all-symbols-table {
             margin-top: 0.5rem;
@@ -398,10 +414,11 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
                 grid-template-columns: 1fr 1.5fr 1fr 1.3fr 1fr;
                 font-weight: bold;
                 padding: 0.5rem 0;
-                border-bottom: 1px solid rgba(0, 40, 85, 0.2);
+                border-bottom: 1px solid var(--th-row-border, rgba(0, 40, 85, 0.2));
                 
                 span {
                     padding: 0 0.3rem;
+                    color: var(--th-text-color, #333);
                 }
             }
             
@@ -409,19 +426,20 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
                 display: grid;
                 grid-template-columns: 1fr 1.5fr 1fr 1.3fr 1fr;
                 padding: 0.3rem 0;
-                border-bottom: 1px solid rgba(0, 40, 85, 0.1);
+                border-bottom: 1px solid var(--th-border-color, rgba(0, 40, 85, 0.1));
+                color: var(--th-text-color, #333);
                 
                 span {
                     padding: 0 0.3rem;
                 }
                 
                 &.best-symbol {
-                    background-color: rgba(16, 185, 129, 0.1);
+                    background-color: var(--th-success-color, rgba(16, 185, 129, 0.1));
                     font-weight: bold;
                 }
                 
                 &.second-best {
-                    background-color: rgba(59, 130, 246, 0.05);
+                    background-color: var(--th-hover-bg, rgba(59, 130, 246, 0.05));
                 }
             }
         }
@@ -431,7 +449,7 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
         margin-top: 1rem;
         padding: 1rem;
         border-radius: 8px;
-        background: rgba(0, 40, 85, 0.05);
+        background: var(--th-hover-bg, rgba(0, 40, 85, 0.05));
         
         .trade-stats {
             margin-top: 0.5rem;
@@ -448,11 +466,11 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
                 
                 .value {
                     &.over {
-                        color: #3a9432;
+                        color: var(--th-success-color, #3a9432);
                     }
                     
                     &.under {
-                        color: #e63d3d;
+                        color: var(--th-error-color, #e63d3d);
                     }
                 }
             }
@@ -465,13 +483,13 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
                 margin-top: 0.5rem;
                 
                 .over-portion {
-                    background: #3a9432;
+                    background: var(--th-success-color, #3a9432);
                     height: 100%;
                     transition: width 0.5s ease-in-out;
                 }
                 
                 .under-portion {
-                    background: #e63d3d;
+                    background: var(--th-error-color, #e63d3d);
                     height: 100%;
                     transition: width 0.5s ease-in-out;
                 }
@@ -486,13 +504,13 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
         text-align: center;
         
         &.over {
-            background: rgba(58, 148, 50, 0.1);
-            color: #3a9432;
+            background: var(--th-success-color, rgba(58, 148, 50, 0.1));
+            color: var(--th-success-color, #3a9432);
         }
         
         &.under {
-            background: rgba(230, 61, 61, 0.1);
-            color: #e63d3d;
+            background: var(--th-error-color, rgba(230, 61, 61, 0.1));
+            color: var(--th-error-color, #e63d3d);
         }
     }
 
@@ -500,8 +518,8 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
         grid-column: 1 / span 2;
         margin-top: 0.5rem;
         padding: 0.3rem 0.5rem;
-        background: rgba(65, 105, 225, 0.1);
-        color: royalblue;
+        background: var(--th-hover-bg, rgba(65, 105, 225, 0.1));
+        color: var(--th-text-prominent, royalblue);
         border-radius: 4px;
         text-align: center;
         font-weight: bold;
@@ -515,10 +533,10 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
     max-width: 900px;
     min-height: 300px;
     margin: 0 auto;
-    background: #ffffff;
+    background: var(--th-background, #ffffff);
     box-shadow: 0 8px 32px rgba(107, 72, 254, 0.15), 0 4px 16px rgba(107, 72, 254, 0.08);
-    color: #333333;
-    border: 1px solid rgba(107, 72, 254, 0.1);
+    color: var(--th-text-color, #333333);
+    border: 1px solid var(--th-border-color, rgba(107, 72, 254, 0.1));
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
@@ -1065,11 +1083,11 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
 
     .profit {
         &--positive {
-            color: #4caf50;
+            color: var(--th-success-color, #4caf50);
         }
         
         &--negative {
-            color: #f44336;
+            color: var(--th-error-color, #f44336);
         }
     }
 }
@@ -1091,28 +1109,28 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
     }
     
     &.win {
-        color: #2e9e5b;
+        color: var(--th-success-color, #2e9e5b);
         font-weight: 600;
         
         &:before {
-            background-color: #2e9e5b;
+            background-color: var(--th-success-color, #2e9e5b);
             box-shadow: 0 0 0 2px rgba(46, 158, 91, 0.2);
         }
     }
     
     &.loss {
-        color: #e74c3c;
+        color: var(--th-error-color, #e74c3c);
         font-weight: 600;
         
         &:before {
-            background-color: #e74c3c;
+            background-color: var(--th-error-color, #e74c3c);
             box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
         }
     }
 }
 
 .martingale-info {
-    color: $purple-secondary;
+    color: var(--th-accent-color, $purple-secondary);
     font-weight: 600;
     position: relative;
     padding-left: 18px;
@@ -1126,7 +1144,7 @@ $purple-gradient: linear-gradient(135deg, $purple-primary, $purple-secondary);
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        background-color: $purple-secondary;
+        background-color: var(--th-accent-color, $purple-secondary);
         box-shadow: 0 0 0 2px rgba(183, 113, 229, 0.2);
     }
 }

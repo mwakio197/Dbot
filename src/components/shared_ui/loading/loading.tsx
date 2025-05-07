@@ -11,7 +11,8 @@ export type TLoadingProps = React.HTMLProps<HTMLDivElement> & {
 };
 
 const Loading = ({ className, id, is_fullscreen = true, is_slow_loading, status, theme }: Partial<TLoadingProps>) => {
-    const theme_class = theme ? `barspinner-${theme}` : 'barspinner-light';
+    // Theme is now automatically determined from CSS variables, but we maintain the prop for backward compatibility
+    const theme_class = 'barspinner-auto-theme';
     return (
         <div
             data-testid='dt_initial_loader'
