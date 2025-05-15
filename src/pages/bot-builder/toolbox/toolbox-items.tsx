@@ -161,7 +161,6 @@ export const ToolboxItems = () =>
             <Category id='purchase_conditions' name={localize('Purchase conditions')}>
                 <Block type='before_purchase' />
                 <Block type='purchase' />
-                <Block type='switcher' />
             </Category>
             <Category id='sell_conditions' name={localize('Sell conditions (optional)')}>
                 <Block type='during_purchase' />
@@ -778,6 +777,17 @@ export const ToolboxItems = () =>
                         </Value>
                     </Block>
                 </Category>
+            </Category>
+            <Category id='binaryfx' name={localize('binaryfx')}>
+                <Block type='notify'>
+                        <Field name='NOTIFICATION_TYPE'>success</Field>
+                        <Value name='MESSAGE'>
+                            <Shadow type='text'>
+                                <Field name='TEXT'>abc</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
+                    <Block type='switcher' />
             </Category>
 
             <Examples id='examples'>

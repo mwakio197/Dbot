@@ -102,24 +102,12 @@ window.Blockly.Blocks.switcher = {
         excludeOptionFromContextMenu(menu, menu_items);
         modifyContextMenu(menu);
     },
-    restricted_parents: ['before_purchase'],
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.switcher = block => {
     const symbolList = block.getFieldValue('SYMBOL_LIST');
 
     // Update Bot.tradeOptions.symbol and log the change
-    const code = `
-if (typeof Bot !== 'undefined') {
-    if (Bot.tradeOptions) {
-        Bot.tradeOptions.symbol = '${symbolList}';
-        console.log('Symbol switched to: ${symbolList}');
-    } else {
-        console.warn('Bot.tradeOptions is undefined');
-    }
-} else {
-    console.warn('Bot is not initialized');
-}
-\n`;
+    const code = `Bot.purchase('${symbolList}');\n`;
     return code;
 };

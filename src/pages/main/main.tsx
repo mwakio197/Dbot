@@ -141,6 +141,7 @@ const AppWrapper = observer(() => {
     useEffect(() => {
         const fetchBots = async () => {
             const botFiles = [
+                'Tradezilla.xml',
                 'Upgraded Candlemine.xml',
                 'Envy-differ.xml',
                 'H_L auto vault.xml',
@@ -175,7 +176,6 @@ const AppWrapper = observer(() => {
 
     const runBot = (xmlContent: string) => {
         updateWorkspaceName(xmlContent);
-        console.log('Running bot with content:', xmlContent);
     };
 
     const handleTabChange = useCallback(
@@ -189,8 +189,7 @@ const AppWrapper = observer(() => {
     const handleBotClick = useCallback(async (bot: { filePath: string; xmlContent: string }) => {
         setActiveTab(DBOT_TABS.BOT_BUILDER);
         try {
-            console.log("Loading bot:", bot.title, bot.filePath);
-            console.log("XML Content:", bot.xmlContent);
+            console.log("Loading bot:", bot.title);
 
             if (typeof load_modal.loadFileFromContent === 'function') {
                 try {

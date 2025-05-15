@@ -42,7 +42,7 @@ const LoadModal: React.FC = observer((): JSX.Element => {
     // Ensure loadFileFromContent is defined on load_modal
     load_modal.loadFileFromContent = async (xmlContent: string) => {
         try {
-            console.log('Loading XML content:', xmlContent);
+            console.log('Loading XML content:');
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
             // Define the loadParsedXML method
