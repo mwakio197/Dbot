@@ -86,7 +86,15 @@ const FreeBotsIcon = () => (
 
 const BotIcon = () => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" fill="var(--text-general)" />
+        <rect x="5" y="8" width="14" height="11" rx="2" stroke="var(--text-general)" strokeWidth="1.5" fill="none"/>
+        <rect x="8.5" y="12" width="2" height="2" rx="0.5" fill="var(--text-general)"/>
+        <rect x="13.5" y="12" width="2" height="2" rx="0.5" fill="var(--text-general)"/>
+        <path d="M12 8V5" stroke="var(--text-general)" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M8 21L9 19H15L16 21" stroke="var(--text-general)" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M7 15H17" stroke="var(--text-general)" strokeWidth="1.5" strokeLinecap="round"/>
+        <circle cx="12" cy="4" r="1" fill="var(--text-general)"/>
+        <path d="M4 11H2" stroke="var(--text-general)" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M22 11H20" stroke="var(--text-general)" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
 );
 
@@ -111,6 +119,7 @@ const AppWrapper = observer(() => {
 
     const [bots, setBots] = useState([]);
     const [analysisToolUrl, setAnalysisToolUrl] = useState('ai');
+    const [botsCategory, setBotsCategory] = useState('automated');
 
     const isAnalysisToolActive = active_tab === ANALYSIS_TOOL;
 
@@ -141,13 +150,13 @@ const AppWrapper = observer(() => {
     useEffect(() => {
         const fetchBots = async () => {
             const botFiles = [
-                'Tradezilla.xml',
-                'Upgraded Candlemine.xml',
-                'Envy-differ.xml',
-                'H_L auto vault.xml',
-                'Top-notch 2.xml',
+                { file: 'Tradezilla.xml', category: 'automated' },
+                { file: 'Upgraded Candlemine.xml', category: 'popular' },
+                { file: 'Envy-differ.xml', category: 'automated' },
+                { file: 'H_L auto vault.xml', category: 'automated' },
+                { file: 'Top-notch 2.xml', category: 'popular' },
             ];
-            const botPromises = botFiles.map(async (file) => {
+            const botPromises = botFiles.map(async ({ file, category }) => {
                 try {
                     const response = await fetch(file);
                     if (!response.ok) {
@@ -161,6 +170,7 @@ const AppWrapper = observer(() => {
                         image: xml.getElementsByTagName('image')[0]?.textContent || 'default_image_path',
                         filePath: file,
                         xmlContent: text,
+                        category,
                     };
                 } catch (error) {
                     console.error(error);
@@ -248,7 +258,7 @@ const AppWrapper = observer(() => {
                             })}>
                                 <div style={{
                                     display: 'flex',
-                                    gap: '8px',
+                                    gap: '3px',
                                     padding: '8px',
                                     borderBottom: '1px solid var(--border-normal)'
                                 }}>
@@ -330,23 +340,221 @@ const AppWrapper = observer(() => {
                             </div>
                         </div>
                         <div label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>} id='id-free-bots'>
-                            <div className='free-bots'>
-                                <h2 className='free-bots__heading'><Localize i18n_default_text='Free Bots' /></h2>
-                                <div className='free-bots__content-wrapper'>
-                                    <ul className='free-bots__content'>
-                                        {bots.map((bot, index) => (
-                                            <li className='free-bot' key={index} onClick={() => {
-                                                handleBotClick(bot);
-                                            }}>
-                                                <BotIcon />
-                                                <div className='free-bot__details'>
-                                                    <h3 className='free-bot__title'>{bot.title}</h3>
-                                                </div>
-                                            </li>
-                                        ))}
+                            <div className='free-bots' style={{
+                                background: 'linear-gradient(135deg, var(--general-section-background), var(--general-main-background))',
+                                borderRadius: '20px',
+                                padding: 'clamp(20px, 5vw, 10px)',
+                                margin: 'clamp(16px, 4vw, 10px) auto',
+                                maxWidth: '1200px',
+                                width: '92%',
+                                boxShadow: '0 8px 32px 0 rgba(0,0,0,0.08)',
+                                border: '1px solid rgba(var(--border-normal-rgb), 0.5)',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '10px',
+                                height: 'auto',
+                            }}>
+                                <div className='free-bots__filters' style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    gap: 'clamp(8px, 2vw, 16px)',
+                                    zIndex: 1
+                                }}>
+                                    {['automated', 'popular', 'regular'].map(category => (
+                                        <button
+                                            key={category}
+                                            onClick={() => setBotsCategory(category)}
+                                            style={{
+                                                backgroundColor: botsCategory === category ? 'var(--button-primary-default)' : 'transparent',
+                                                color: botsCategory === category ? 'white' : 'var(--text-general)',
+                                                padding: '10px 20px',
+                                                border: '1px solid var(--border-normal)',
+                                                borderRadius: '8px',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                transition: 'all 0.3s ease',
+                                                touchAction: 'manipulation'
+                                            }}
+                                        >
+                                            <Localize i18n_default_text={category.charAt(0).toUpperCase() + category.slice(1) + ' Bots'} />
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className='free-bots__content-wrapper' style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: 'clamp(8px, 2vw, 16px)',
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    zIndex: 1
+                                }}>
+                                    <ul className='free-bots__content' style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+                                        gap: 'clamp(8px, 2vw, 16px)',
+                                        padding: 0,
+                                        margin: 0,
+                                        listStyle: 'none',
+                                        width: '100%'
+                                    }}>
+                                        {bots
+                                            .filter(bot => bot.category === botsCategory)
+                                            .map((bot, index) => (
+                                                <li
+                                                    className='free-bot'
+                                                    key={index}
+                                                    style={{
+                                                        background: 'var(--general-main-background)',
+                                                        borderRadius: '16px',
+                                                        boxShadow: '0 4px 16px 0 rgba(0,0,0,0.1)',
+                                                        padding: 'clamp(20px, 5%, 28px) clamp(16px, 5%, 24px)',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                                                        border: '2px solid var(--border-normal)',
+                                                        position: 'relative',
+                                                        overflow: 'hidden',
+                                                        transform: 'translateY(0) scale(1)',
+                                                        cursor: 'pointer',
+                                                        height: '100%',
+                                                        width: '100%',
+                                                        maxWidth: '100%'
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleBotClick(bot);
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+                                                        e.currentTarget.style.boxShadow = '0 12px 24px 0 rgba(0,0,0,0.2)';
+                                                        e.currentTarget.style.borderColor = 'var(--border-hover)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                                                        e.currentTarget.style.boxShadow = '0 4px 16px 0 rgba(0,0,0,0.1)';
+                                                        e.currentTarget.style.borderColor = 'var(--border-normal)';
+                                                    }}
+                                                >
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        width: '100%',
+                                                        zIndex: 1
+                                                    }}>
+                                                        <div style={{
+                                                            width: '42px',
+                                                            height: '42px',
+                                                            borderRadius: '50%',
+                                                            background: 'linear-gradient(135deg, var(--brand-secondary-light), var(--general-section-background))',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            boxShadow: '0 4px 8px 0 rgba(0,0,0,0.08)',
+                                                            border: '1px solid rgba(var(--border-normal-rgb), 0.5)',
+                                                            position: 'relative',
+                                                            flexShrink: 0,
+                                                            marginRight: '12px'
+                                                        }}>
+                                                            <BotIcon />
+                                                        </div>
+                                                        <h3 className='free-bot__title' style={{
+                                                            fontSize: 'clamp(14px, 1.8vw, 16px)',
+                                                            fontWeight: 600,
+                                                            color: 'var(--text-prominent)',
+                                                            margin: 0,
+                                                            wordBreak: 'break-word',
+                                                            textAlign: 'left'
+                                                        }}>
+                                                            {bot.title.replace('.xml', '')}
+                                                        </h3>
+                                                    </div>
+                                                    <div className='free-bot__details' style={{
+                                                        textAlign: 'center',
+                                                        zIndex: 1,
+                                                        flexGrow: 1
+                                                    }}>
+                                                        <p style={{
+                                                            fontSize: '13px',
+                                                            color: 'var(--text-general)',
+                                                            margin: 0,
+                                                            lineHeight: 1.5
+                                                        }}>
+                                                            {botsCategory === 'automated' && <Localize i18n_default_text='Effortless trading with automated bots.' />}
+                                                            {botsCategory === 'popular' && <Localize i18n_default_text='Most loved bots by our users.' />}
+                                                            {botsCategory === 'regular' && <Localize i18n_default_text='Reliable bots for everyday trading.' />}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleBotClick(bot);
+                                                        }}
+                                                        style={{
+                                                            background: 'linear-gradient(to right, var(--button-primary-default), var(--brand-red-coral))',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '8px',
+                                                            padding: '10px 24px',
+                                                            fontWeight: 600,
+                                                            fontSize: '1rem',
+                                                            cursor: 'pointer',
+                                                            boxShadow: '0 4px 8px 0 rgba(0,0,0,0.1)',
+                                                            transition: 'all 0.2s',
+                                                            zIndex: 1,
+                                                            width: '100%',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            position: 'relative'
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                                            e.currentTarget.style.boxShadow = '0 6px 12px 0 rgba(0,0,0,0.15)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.transform = 'translateY(0)';
+                                                            e.currentTarget.style.boxShadow = '0 4px 8px 0 rgba(0,0,0,0.1)';
+                                                        }}
+                                                    >
+                                                        <Localize i18n_default_text='Load Bot' />
+                                                    </button>
+                                                </li>
+                                            ))}
                                     </ul>
                                 </div>
                             </div>
+
+                            {/* Add keyframe animation and responsive styles */}
+                            <style>
+                                {`
+                                    @keyframes pulse {
+                                        0% {
+                                            transform: scale(0.95);
+                                            opacity: 0.7;
+                                        }
+                                        50% {
+                                            transform: scale(1.05);
+                                            opacity: 0.3;
+                                        }
+                                        100% {
+                                            transform: scale(0.95);
+                                            opacity: 0.7;
+                                        }
+                                    }
+                                    
+                                    @media screen and (max-width: 468px) {
+                                        .free-bots {
+                                            max-height: 550px;
+                                            overflow-y: auto;
+                                        }
+                                    }
+                                `}
+                            </style>
                         </div>
                     </Tabs>
                 </div>
