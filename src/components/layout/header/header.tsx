@@ -50,7 +50,7 @@ const InfoIcon = () => {
             icon: (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 6.48 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20ZM11 14.45L16.95 8.5L15.53 7.08L11 11.61L8.71 9.32L7.29 10.74L11 14.45Z" fill="#4285F4"/>
-                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 6.48 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#34A853" fillOpacity="0.2"/>
+                    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#34A853" fillOpacity="0.2"/>
                 </svg>
             )
         },
@@ -1032,15 +1032,15 @@ const AppHeader = observer(() => {
         };
         
         // Use an array of possible field names for each value
-        const fullName = getValue(['full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
-        const accountId = getValue(['account id', 'login_id', 'loginId', 'accountId', 'account_id', 'Account ID']);
-        const email = getValue(['email', 'Email', 'email_address', 'emailAddress']);
-        const minBalance = getValue(['min_balance', 'Min Balance', 'minBalance', 'minimum_balance', 'minimumBalance']);
-        const profilePicture = getValue(['profile', 'profile_picture', 'Profile Picture', 'profilePicture', 'profile_pic', 'profilePic', 'avatar']);
-        const status = getValue(['status', 'Status', 'account_status', 'accountStatus'], 'Pending');
-        const winRate = getValue(['win_rate', 'Win Rate', 'winRate', 'win_percentage', 'winPercentage']);
-        const totalTrades = getValue(['total_trades', 'Total Trades', 'totalTrades', 'trade_count', 'tradeCount']);
-        const totalProfit = getValue(['total_profit', 'Total Profit', 'totalProfit', 'profit_amount', 'profitAmount']);
+        const fullName = getValue(['full_name_text', 'full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
+        const accountId = getValue(['account_id_text', 'account id', 'login_id', 'loginId', 'accountId', 'account_id', 'Account ID']);
+        const email = getValue(['email_text', 'email', 'Email', 'email_address', 'emailAddress']);
+        const minBalance = getValue(['min_balance_number', 'min_balance', 'Min Balance', 'minBalance', 'minimum_balance', 'minimumBalance']);
+        const profilePicture = getValue(['profile_image', 'profile', 'profile_picture', 'Profile Picture', 'profilePicture', 'profile_pic', 'profilePic', 'avatar']);
+        const status = getValue(['status_text', 'status', 'Status', 'account_status', 'accountStatus'], 'Pending');
+        const winRate = getValue(['win_rate_number', 'win_rate', 'Win Rate', 'winRate', 'win_percentage', 'winPercentage']);
+        const totalTrades = getValue(['total_trades_number', 'total_trades', 'Total Trades', 'totalTrades', 'trade_count', 'tradeCount']);
+        const totalProfit = getValue(['total_profit_number', 'total_profit', 'Total Profit', 'totalProfit', 'profit_amount', 'profitAmount']);
         const currency = getValue(['currency', 'Currency', 'account_currency', 'accountCurrency'], 'USD');
         
         // Get number of copiers - similar to how it's done in ProviderListView
@@ -1062,12 +1062,19 @@ const AppHeader = observer(() => {
         } else {
             // If no direct count, try to get tokens array and count its length
             const copierTokens = getValue([
-                'list of tokens', 'tokens', 'copy_tokens', 'copyTokens', 'copier_tokens', 'copierTokens',
+                'list_of_tokens_list_text', 'list of tokens', 'tokens', 'copy_tokens', 'copyTokens', 'copier_tokens', 'copierTokens',
                 'Tokens', 'CopyTokens', 'token_list', 'tokenList', 'Token List'
             ], null);
             
             if (copierTokens !== null && copierTokens !== 'N/A' && Array.isArray(copierTokens)) {
                 numCopiers = copierTokens.length;
+            } else if (typeof copierTokens === 'string') {
+                // If it's a comma-separated string, split and count
+                const tokenArray = copierTokens.split(',').filter(t => t.trim().length > 0);
+                numCopiers = tokenArray.length;
+            } else if (typeof copierTokens === 'object') {
+                // If it's an object, count its keys
+                numCopiers = Object.keys(copierTokens).length;
             }
         }
         
@@ -1416,8 +1423,8 @@ const AppHeader = observer(() => {
         const handleCopyProvider = async (provider: any, index: number) => {
             try {
                 // Use account id instead of _id for provider identification
-                const accountId = getValue(provider, ['account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
-                const providerName = getValue(provider, ['full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
+                const accountId = getValue(provider, ['account_id_text', 'account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
+                const providerName = getValue(provider, ['full_name_text', 'full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
                 
                 // Set copying state for this provider using accountId
                 setIsCopying(prev => ({ ...prev, [accountId]: true }));
@@ -1441,7 +1448,7 @@ const AppHeader = observer(() => {
                 }
                 
                 // Check user balance before proceeding
-                const providerMinBalance = parseFloat(getValue(provider, ['min_balance', 'Min Balance', 'minBalance', 'minimum_balance', 'minimumBalance'], '0'));
+                const providerMinBalance = parseFloat(getValue(provider, ['min_balance_number', 'min_balance', 'Min Balance', 'minBalance', 'minimum_balance', 'minimumBalance'], '0'));
                 const balanceCheckPassed = handleCopy(providerMinBalance);
                 if (!balanceCheckPassed) {
                     return;
@@ -1465,9 +1472,9 @@ const AppHeader = observer(() => {
                     name: providerName,
                     token: token,
                     timestamp: Date.now(),
-                    providerId: accountId,
+                    providerId: accountId, // Ensure this uses the correct accountId
                     symbol: getValue(provider, ['symbol', 'underlying'], 'Unknown'),
-                    winRate: getValue(provider, ['win_rate', 'Win Rate', 'winRate'], 0)
+                    winRate: getValue(provider, ['win_rate_number', 'win_rate', 'Win Rate', 'winRate'], 0)
                 });
                 
                 // 4. Set success state using accountId
@@ -1485,7 +1492,7 @@ const AppHeader = observer(() => {
             } catch (error) {
                 console.error('Error setting up copy trading:', error);
                 // Use accountId here too for consistency
-                const accountId = getValue(provider, ['account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
+                const accountId = getValue(provider, ['account_id_text', 'account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
                 setIsCopying(prev => ({ ...prev, [accountId]: false }));
                 setCopyError(prev => ({ 
                     ...prev, 
@@ -1499,12 +1506,12 @@ const AppHeader = observer(() => {
         const updateProviderTokens = async (provider: any, newToken: string): Promise<void> => {
             try {
                 // Get the provider's account ID - use account id instead of _id
-                const providerId = getValue(provider, ['account id', 'login_id', 'loginId', 'account_id', 'Account ID']);
+                const providerId = getValue(provider, ['account_id_text', 'account id', 'login_id', 'loginId', 'account_id', 'Account ID']);
                 if (!providerId) {
                     throw new Error("Provider account ID not found");
                 }
                 
-                const fullName = getValue(provider, ['full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
+                const fullName = getValue(provider, ['full_name_text', 'full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
                 
                 console.log(`Updating token for provider: ${fullName} (Account ID: ${providerId})`);
                 
@@ -1747,14 +1754,14 @@ const AppHeader = observer(() => {
         // Check if a provider is being copied by current user
         const isProviderCopied = (providerId: string): boolean => {
             const copiedProviders = getCopiedProviders();
-            return !!copiedProviders[providerId];
+            return !!copiedProviders[providerId]; // Ensure providerId matches the key used in getCopiedProviders
         };
 
         // Add function to stop copying a provider
         const handleStopCopying = async (provider: any, index: number) => {
             try {
-                const accountId = getValue(provider, ['account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
-                const providerName = getValue(provider, ['full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
+                const accountId = getValue(provider, ['account_id_text', 'account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
+                const providerName = getValue(provider, ['full_name_text', 'full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
                 
                 // Set copying state for this provider using accountId
                 setIsCopying(prev => ({ ...prev, [accountId]: true }));
@@ -1949,7 +1956,7 @@ const AppHeader = observer(() => {
                 setIsCopying(prev => ({ ...prev, [accountId]: false }));
             } catch (error) {
                 console.error('Error stopping copy trading:', error);
-                const accountId = getValue(provider, ['account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
+                const accountId = getValue(provider, ['account_id_text', 'account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
                 setIsCopying(prev => ({ ...prev, [accountId]: false }));
                 showNotification('Failed to stop copy trading. Please try again.', 'error');
             }
@@ -2006,7 +2013,7 @@ const AppHeader = observer(() => {
             return (
                 <div className="providers-empty">
                     <svg viewBox="0 0 24 24" width="48" height="48">
-                        <path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8-8-3.59-8-8 8-8 8zM11 9h2V7h-2v2z" fill="currentColor"/>
+                        <path d="M11 17H13V11H11V17ZM12 4C6.48 4 2 8.48 2 14V20H4V14C4 9.58 7.58 6 12 6C16.42 6 20 9.58 20 14V20H22V14C22 8.48 17.52 4 12 4ZM12 0C9.79 0 7.67 0.79 5.88 2.12L7.3 3.54C8.74 2.73 10.3 2.25 12 2.25C13.7 2.25 15.26 2.73 16.7 3.54L18.12 2.12C16.33 0.79 14.21 0 12 0ZM12 22C14.21 22 16.33 21.21 18.12 19.88L16.7 18.46C15.26 19.27 13.7 19.75 12 19.75C10.3 19.75 8.74 19.27 7.3 18.46L5.88 19.88C7.67 21.21 9.79 22 12 22ZM4 8H20V10H4V8ZM4 12H20V14H4V12ZM4 16H20V18H4V16Z" fill="currentColor"/>
                     </svg>
                     <p>No approved strategy providers available at this time.</p>
                     <p className="providers-empty-hint">Check back later or become a strategy provider yourself!</p>
@@ -2026,12 +2033,12 @@ const AppHeader = observer(() => {
                 <div className="providers-list">
                     {approvedProviders.map((provider, index) => {
                         // Extract values using getValue function for consistency
-                        const fullName = getValue(provider, ['full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
-                        const profilePicture = getValue(provider, ['profile', 'profile_picture', 'Profile Picture', 'profilePicture', 'profile_pic', 'profilePic', 'avatar']);
-                        const winRate = getValue(provider, ['win_rate', 'Win Rate', 'winRate', 'win_percentage', 'winPercentage']);
-                        const minBalance = getValue(provider, ['min_balance', 'Min Balance', 'minBalance', 'minimum_balance', 'minimumBalance']);
+                        const fullName = getValue(provider, ['full_name_text', 'full_name', 'Full Name', 'fullName', 'name'], 'Unnamed Trader');
+                        const profilePicture = getValue(provider, ['profile_image', 'profile', 'profile_picture', 'Profile Picture', 'profilePicture', 'profile_pic', 'profilePic', 'avatar']);
+                        const winRate = getValue(provider, ['win_rate_number', 'win_rate', 'Win Rate', 'winRate', 'win_percentage', 'winPercentage']);
+                        const minBalance = getValue(provider, ['min_balance_number', 'min_balance', 'Min Balance', 'minBalance', 'minimum_balance', 'minimumBalance']);
                         const currency = getValue(provider, ['currency', 'Currency', 'account_currency', 'accountCurrency'], 'USD');
-                        const totalTrades = getValue(provider, ['total_trades', 'Total Trades', 'totalTrades', 'trade_count', 'tradeCount']);
+                        const totalTrades = getValue(provider, ['total_trades_number', 'total_trades', 'Total Trades', 'totalTrades', 'trade_count', 'tradeCount']);
                         
                         // Enhanced copier count retrieval with more fallback options and direct field checks
                         let numCopiers = 0;
@@ -2052,7 +2059,7 @@ const AppHeader = observer(() => {
                         } else {
                             // If no direct count, try to get tokens array and count its length
                             const copierTokens = getValue(provider, [
-                                'list of tokens', 'tokens', 'copy_tokens', 'copyTokens', 'copier_tokens', 'copierTokens',
+                                'list_of_tokens_list_text', 'list of tokens', 'tokens', 'copy_tokens', 'copyTokens', 'copier_tokens', 'copierTokens',
                                 'Tokens', 'CopyTokens', 'token_list', 'tokenList', 'Token List'
                             ], null);
                             
@@ -2072,12 +2079,12 @@ const AppHeader = observer(() => {
                         
                         // Check if provider is verified - updated to handle boolean true values
                         const isVerified = getValue(provider, [
-                            'verified', 'Verified', 'is_verified', 'isVerified', 
+                            'verified_boolean', 'verified', 'Verified', 'is_verified', 'isVerified', 
                             'verification', 'Verification', 'verification_status'
                         ], false) === true;
                         
                         // Get provider ID for state tracking - use account id instead of _id
-                        const providerId = getValue(provider, ['account id', 'login_id', 'loginId', 'account_id', 'Account ID'], `provider_${index}`);
+                        const providerId = getValue(provider, ['account_id_text', 'account id', 'login_id', 'loginId', 'account_id', 'Account ID', '_id'], `provider_${index}`);
                         
                         // Check if this provider is already being copied
                         const isCopied = isProviderCopied(providerId);
@@ -2457,7 +2464,7 @@ const AppHeader = observer(() => {
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 32 32" width="24" height="24" role="img"><path fill="#85ACB0" d="M32 16c0 8.837-7.163 16-16 16S0 24.837 0 16 7.163 0 16 0s16 7.163 16 16"></path><path fill="#fff" d="M17.535 6C22.665 6 27 10.743 27 16s-4.336 10-9.465 10H9a1 1 0 1 1 0-2h2v-4H9a1 1 0 0 1-.993-.883L8 19a1 1 0 0 1 1-1h2v-4H9a1 1 0 0 1-.993-.883L8 13a1 1 0 0 1 1-1h2V8H9a1 1 0 0 1-.993-.883L8 7a1 1 0 0 1 1-1zm0 2H13v4h4a1 1 0 0 1 .993.883L18 13a1 1 0 0 1-1 1h-4v4h4a1 1 0 0 1 .993.883L18 19a1 1 0 0 1-1 1h-4v4h4.535c3.906 0 7.33-3.665 7.461-7.759L25 16c0-4.19-3.483-8-7.465-8"></path></svg>
                                                 ) : (
                                                     // Real account icon
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 32 32" width="24" height="24" role="img"><path fill="#fff" d="M.03 15a16.3 16.3 0 0 0 .094 3h31.752a16 16 0 0 0 .093-3zM16 9v3h15.496a16 16 0 0 0-1.104-3zM16 6h12.49a16 16 0 0 0-3.16-3H16zM.797 21a16 16 0 0 0 1.343 3h27.72c.545-.943.997-1.948 1.343-3zM4.381 27a16 16 0 0 0 3.867 3h15.504a16 16 0 0 0 3.867-3z"></path><path fill="#F44336" d="M16 0v3h9.33A15.93 15.93 0 0 0 16 0M16 15h15.97a16 16 0 0 0-.474-3H16zM16 9h14.392a16 16 0 0 0-1.901-3H16zM31.876 18a16 16 0 0 1-.673 3H.797a16 16 0 0 1-.673-3zM2.14 24a16 16 0 0 0 2.241 3h23.238a16 16 0 0 0 2.24-3zM16 32c2.813 0 5.455-.726 7.752-2H8.248c2.297 1.274 4.94 2 7.752 2"></path><path fill="#283991" fill-rule="evenodd" d="M16 15H.03a16 16 0 0 1 .176-1.575l-.01.069a.078.078 0 0 0 .057-.102l-.027-.085q.06-.355.136-.705l-.004.016.194-.143a.08.08 0 0 0-.048-.142H.422a16 16 0 0 1 1.232-3.425l.264-.19.48.344a.08.08 0 0 0 .121-.03.08.08 0 0 0 .002-.056l-.18-.563.48-.354a.08.08 0 0 0-.048-.142h-.584A16.1 16.1 0 0 1 6.655 3.01l.28.202a.08.08 0 0 0 .085.009l.006-.003.004-.003a.08.08 0 0 0 .03-.09L6.953 2.8A15.93 15.93 0 0 1 16 0zM13.515.637l-.143-.422-.24.041-.129.384h-.59a.1.1 0 0 0-.03.007l-.01.005-.003.002a.08.08 0 0 0-.005.128l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .094.003.08.08 0 0 0 .03-.089l-.181-.563.48-.354a.08.08 0 0 0 .022-.028l.003-.007a.1.1 0 0 0 .005-.025.08.08 0 0 0-.053-.077.1.1 0 0 0-.025-.005zM9.287 1.785a.08.08 0 0 0 .03-.089l-.067-.207-.167.08-.112.054.222.16a.08.08 0 0 0 .094.002m3.716 10.551.19-.563a.067.067 0 0 1 .132-.003l.19.563h.59a.08.08 0 0 1 .074.054.08.08 0 0 1-.025.088l-.48.354.18.563a.079.079 0 0 1-.123.086l-.48-.344-.48.344-.013.008-.006.002-.008.003a.08.08 0 0 1-.076-.022l-.01-.012-.002-.005-.003-.003-.002-.007a.1.1 0 0 1-.003-.05l.197-.56-.48-.354a.08.08 0 0 1 .005-.129l.007-.004.005-.002.004-.002.009-.002.018-.003zm-4.216-.566a.067.067 0 0 0-.131.003l-.19.563h-.59a.08.08 0 0 0-.049.142l.48.354-.197.56a.08.08 0 0 0 .01.063l.004.006.004.006.014.011a.08.08 0 0 0 .092 0l.48-.344.48.344.035.016.007.001h.005a.1.1 0 0 0 .046-.014.08.08 0 0 0 .03-.089l-.181-.563.48-.354.016-.016.004-.008.009-.024v-.025l-.001-.007-.002-.008a.08.08 0 0 0-.074-.054h-.59zm-4.526 0 .19.563h.59a.08.08 0 0 1 .048.142l-.48.354.18.563.003.012.001.008v.008a.08.08 0 0 1-.033.061.08.08 0 0 1-.094-.003l-.48-.344-.48.344a.08.08 0 0 1-.125-.078l.002-.008.197-.56-.48-.354a.08.08 0 0 1-.03-.06q-.001-.013.004-.028a.08.08 0 0 1 .074-.054h.592l.19-.563c.002-.08.107-.08.13-.003m6.795-1.488a.074.074 0 1 1 .074.074l.19.563h.591a.08.08 0 0 1 .048.142l-.48.354.18.563a.08.08 0 0 1-.029.09.08.08 0 0 1-.094-.003l-.48-.344-.48.344a.08.08 0 0 1-.123-.086l.181-.563-.48-.354a.08.08 0 0 1 .048-.142h.59l.19-.563c0-.041.034-.074.075-.074m-4.262.637-.19-.563c-.023-.077-.128-.077-.13 0l-.19.563h-.608a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142zM6.53 4.422l.19.564h.59a.08.08 0 0 1 .048.142l-.48.354.181.563a.078.078 0 0 1-.123.086l-.48-.344-.48.344a.08.08 0 0 1-.123-.086l.18-.563-.48-.354a.08.08 0 0 1 .049-.142h.59l.19-.564c.02-.065.125-.065.148 0m4.716.564-.19-.564c-.013-.065-.118-.065-.147 0l-.19.564h-.591a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.086l.48-.344.48.344a.08.08 0 0 0 .124-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142zM8.787 2.992l.19.563h.591a.1.1 0 0 1 .04.012.08.08 0 0 1 .008.13l-.48.354.18.563a.078.078 0 0 1-.123.087l-.48-.344-.48.344a.08.08 0 0 1-.124-.078l.001-.009.181-.563-.48-.353a.08.08 0 0 1 .048-.143h.59l.19-.563c.03-.066.135-.066.148 0m4.728.563-.19-.563c-.013-.066-.119-.066-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.143l.48.353-.181.563a.08.08 0 0 0 .123.087l.48-.344.48.344a.08.08 0 0 0 .123-.087l-.18-.563.48-.353a.08.08 0 0 0-.048-.143zm-2.472-2.093a.1.1 0 0 1 .013.042l.19.563h.59a.08.08 0 0 1 .075.055.08.08 0 0 1-.026.088l-.48.353.18.563a.08.08 0 0 1-.029.09.08.08 0 0 1-.094-.003l-.48-.344-.48.344a.08.08 0 0 1-.092 0 .08.08 0 0 1-.03-.087l.18-.563-.48-.353a.08.08 0 0 1 .048-.143h.59l.19-.563a.073.073 0 0 1 .135-.042" clip-rule="evenodd"></path><path fill="#283991" d="m4.783 4.59-.078.078-.035.035a.078.078 0 0 0 .12-.089z"></path><path fill="#fff" d="m13.133.256.24-.041.142.422h.59a.08.08 0 0 1 .049.142l-.48.354.18.563a.079.079 0 0 1-.123.086l-.48-.344-.48.344a.08.08 0 0 1-.123-.086l.197-.56-.48-.354a.08.08 0 0 1 .048-.142h.59zM8.97 1.623l.28-.134.067.207a.078.078 0 0 1-.124.086zM6.655 3.011q.149-.107.3-.21l.104.325a.078.078 0 0 1-.123.087zM4.67 4.703l.113-.112.007.023a.078.078 0 0 1-.12.089M1.654 8.908q.25-.506.535-.991h.584a.08.08 0 0 1 .048.142l-.48.354.18.563a.078.078 0 0 1-.123.086l-.48-.344zM.195 13.494a.078.078 0 0 0 .057-.102l-.026-.085zM.358 12.618q.03-.142.064-.285h.082a.08.08 0 0 1 .048.142zM13.325 11.77a.067.067 0 0 0-.131.003l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.079.079 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142zm-4.538 0a.067.067 0 0 0-.131.003l-.19.563h-.59a.08.08 0 0 0-.049.142l.48.354-.197.56a.08.08 0 0 0 .124.086l.48-.344.48.344a.079.079 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM4.451 12.333l-.19-.563c-.023-.077-.128-.077-.13.003l-.19.563h-.592a.08.08 0 0 0-.048.142l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142zM11.056 10.282a.074.074 0 1 0-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.086l.48-.344.48.344a.08.08 0 0 0 .124-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM6.72 10.845l-.19-.563c-.023-.077-.129-.077-.148 0l-.19.563h-.59a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.049-.142zM2.182 10.845l-.19-.563c-.023-.077-.128-.077-.13 0l-.19.563h-.608a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.086l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142zM13.515 9.403l-.19-.563c-.013-.066-.119-.066-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.079.079 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM8.787 9.403a.074.074 0 0 0-.147 0l-.19.563h-.59a.08.08 0 0 0-.049.142l.48.354-.18.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM4.451 9.403l-.19-.563c-.023-.066-.128-.066-.13 0l-.19.563h-.608a.08.08 0 0 0-.048.143l.48.353-.181.563a.08.08 0 0 0 .123.087l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.18-.564.48-.353a.08.08 0 0 0-.048-.143zM11.056 7.354a.074.074 0 1 0-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.086l.48-.344.48.344a.078.078 0 0 0 .124-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM6.72 7.917l-.19-.563c-.023-.077-.129-.077-.148 0l-.19.563h-.59a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.049-.142zM13.325 5.922a.067.067 0 0 0-.131.003l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.079.079 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM8.787 5.922a.074.074 0 0 0-.147 0l-.19.563h-.59a.08.08 0 0 0-.049.142l.48.354-.18.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM4.451 6.485l-.19-.563c-.023-.077-.128-.077-.13 0l-.19.563h-.608a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142zM6.72 4.986l-.19-.564c-.023-.065-.129-.065-.148 0l-.19.564h-.59a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.049-.142zM11.246 4.986l-.19-.564c-.013-.065-.118-.065-.147 0l-.19.564h-.591a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.086l.48-.344.48.344a.08.08 0 0 0 .124-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142zM8.978 3.555l-.19-.563c-.014-.066-.12-.066-.148 0l-.19.563h-.59a.08.08 0 0 0-.049.143l.48.353-.18.563a.08.08 0 0 0 .123.087l.48-.344.48.344a.078.078 0 0 0 .123-.087l-.181-.563.48-.353a.08.08 0 0 0-.048-.143zM13.515 3.555l-.19-.563c-.013-.066-.119-.066-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.143l.48.353-.181.563a.08.08 0 0 0 .123.087l.48-.344.48.344a.078.078 0 0 0 .123-.087l-.18-.563.48-.353a.08.08 0 0 0-.048-.143h-.59zM11.056 1.504a.074.074 0 1 0-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.143l.48.353-.18.563a.08.08 0 0 0 .122.087l.48-.344.48.344a.078.078 0 0 0 .124-.087l-.181-.563.48-.353a.08.08 0 0 0-.048-.143h-.59z"></path></svg>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 32 32" width="24" height="24" role="img"><path fill="#fff" d="M.03 15a16.3 16.3 0 0 0 .094 3h31.752a16 16 0 0 0 .093-3zM16 9v3h15.496a16 16 0 0 0-1.104-3H16zM16 6h12.49a16 16 0 0 0-3.16-3H16zM.797 21a16 16 0 0 0 1.343 3h27.72c.545-.943.997-1.948 1.343-3zM4.381 27a16 16 0 0 0 3.867 3h15.504a16 16 0 0 0 3.867-3z"></path><path fill="#F44336" d="M16 0v3h9.33A15.93 15.93 0 0 0 16 0M16 15h15.97a16 16 0 0 0-.474-3H16zM16 9h14.392a16 16 0 0 0-1.901-3H16zM31.876 18a16 16 0 0 1-.673 3H.797a16 16 0 0 1-.673-3zM2.14 24a16 16 0 0 0 2.241 3h23.238a16 16 0 0 0 2.24-3zM16 32c2.813 0 5.455-.726 7.752-2H8.248c2.297 1.274 4.94 2 7.752 2"></path><path fill="#283991" fill-rule="evenodd" d="M16 15H.03a16 16 0 0 1 .176-1.575l-.01.069a.078.078 0 0 0 .057-.102l-.027-.085q.06-.355.136-.705l-.004.016.194-.143a.08.08 0 0 0-.048-.142H.422a16 16 0 0 1 1.232-3.425l.264-.19.48.344a.08.08 0 0 0 .121-.03.08.08 0 0 0 .002-.056l-.18-.563.48-.354a.08.08 0 0 0-.048-.142h-.584A16.1 16.1 0 0 1 6.655 3.01l.28.202a.08.08 0 0 0 .085.009l.006-.003.004-.003a.08.08 0 0 0 .03-.09L6.953 2.8A15.93 15.93 0 0 1 16 0zM13.515.637l-.143-.422-.24.041-.129.384h-.59a.1.1 0 0 0-.03.007l-.01.005-.003.002a.08.08 0 0 0-.005.128l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .094.003.08.08 0 0 0 .03-.089l-.181-.563.48-.354a.08.08 0 0 0 .022-.028l.003-.007a.1.1 0 0 0 .005-.025.08.08 0 0 0-.053-.077.1.1 0 0 0-.025-.005zM9.287 1.785a.08.08 0 0 0 .03-.089l-.067-.207-.167.08-.112.054.222.16a.08.08 0 0 0 .094.002m3.716 10.551.19-.563a.067.067 0 0 1 .132-.003l.19.563h.59a.08.08 0 0 1 .074.054.08.08 0 0 1-.025.088l-.48.354.18.563a.079.079 0 0 1-.123.086l-.48-.344-.48.344-.013.008-.006.002-.008.003a.08.08 0 0 1-.076-.022l-.01-.012-.002-.005-.003-.003-.002-.007a.1.1 0 0 1-.003-.05l.197-.56-.48-.354a.08.08 0 0 1 .005-.129l.007-.004.005-.002.004-.002.009-.002.018-.003zm-4.216-.566a.067.067 0 0 0-.131.003l-.19.563h-.59a.08.08 0 0 0-.049.142l.48.354-.197.56a.08.08 0 0 0 .01.063l.004.006.004.006.014.011a.08.08 0 0 0 .092 0l.48-.344.48.344.035.016.007.001h.005a.1.1 0 0 0 .046-.014.08.08 0 0 0 .03-.089l-.181-.563.48-.354.016-.016.004-.008.009-.024v-.025l-.001-.007-.002-.008a.08.08 0 0 0-.074-.054h-.59zm-4.526 0 .19.563h.59a.08.08 0 0 1 .048.142l-.48.354.181.563.003.012.001.008v.008a.08.08 0 0 1-.033.061.08.08 0 0 1-.094-.003l-.48-.344-.48.344a.08.08 0 0 1-.125-.078l.002-.008.197-.56-.48-.354a.08.08 0 0 1-.03-.06q-.001-.013.004-.028a.08.08 0 0 1 .074-.054h.592l.19-.563c.002-.08.107-.08.13-.003m6.795-1.488a.074.074 0 1 1 .074.074l.19.563h.591a.08.08 0 0 1 .048.142l-.48.354.18.563a.08.08 0 0 1-.029.09.08.08 0 0 1-.094-.003l-.48-.344-.48.344a.08.08 0 0 1-.123-.086l.181-.563-.48-.354a.08.08 0 0 1 .048-.142h.59l.19-.563c0-.041.034-.074.075-.074m-4.262.637-.19-.563c-.023-.077-.128-.077-.13 0l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142zM6.53 4.422l.19.564h.59a.08.08 0 0 1 .048.142l-.48.354.181.563a.078.078 0 0 1-.123.086l-.48-.344-.48.344a.08.08 0 0 1-.124-.078l.001-.009.181-.563-.48-.353a.08.08 0 0 1 .048-.143h.59l.19.564c.02.065.125.065.148 0m4.716.564-.19-.564c-.013-.065-.118-.065-.147 0l-.19.564h-.591a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.086l.48-.344.48.344a.08.08 0 0 0 .124-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142zM8.787 2.992l.19.563h.591a.1.1 0 0 1 .04.012.08.08 0 0 1 .008.13l-.48.354.18.563a.078.078 0 0 1-.124.086zM6.655 3.011q.149-.107.3-.21l.104.325a.078.078 0 0 1-.123.087zM4.67 4.703l.113-.112.007.023a.078.078 0 0 1-.12.089M1.654 8.908q.25-.506.535-.991h.584a.08.08 0 0 1 .048.142l-.48.354.18.563a.078.078 0 0 1-.123.086l-.48-.344zM.195 13.494a.078.078 0 0 0 .057-.102l-.026-.085zM.358 12.618q.03-.142.064-.285h.082a.08.08 0 0 1 .048.142zM13.325 11.77a.067.067 0 0 0-.131.003l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.079.079 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142zm-4.538 0a.067.067 0 0 0-.131.003l-.19.563h-.59a.08.08 0 0 0-.049.142l.48.354-.197.56a.08.08 0 0 0 .124.086l.48-.344.48.344a.079.079 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM4.451 12.333l-.19-.563c-.023-.077-.128-.077-.13.003l-.19.563h-.592a.08.08 0 0 0-.048.142l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM11.056 10.282a.074.074 0 1 0-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.086l.48-.344.48.344a.08.08 0 0 0 .124-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM6.72 10.845l-.19-.563c-.023-.077-.129-.077-.148 0l-.19.563h-.59a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.049-.142zM13.325 9.403a.067.067 0 0 0-.131.003l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.079.079 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM8.787 9.403a.074.074 0 0 0-.147 0l-.19.563h-.59a.08.08 0 0 0-.049.142l.48.354-.18.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM4.451 9.403l-.19-.563c-.023-.066-.128-.066-.13 0l-.19.563h-.608a.08.08 0 0 0-.048.143l.48.353-.181.563a.08.08 0 0 0 .123.087l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.18-.564.48-.353a.08.08 0 0 0-.048-.143zM11.056 7.354a.074.074 0 1 0-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.087l.48-.344.48.344a.078.078 0 0 0 .124-.087l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM6.72 7.917l-.19-.563c-.023-.077-.129-.077-.148 0l-.19.563h-.59a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.049-.142zM13.325 5.922a.067.067 0 0 0-.131.003l-.19.563h-.591a.08.08 0 0 0-.048.142l.48.354-.197.56a.08.08 0 0 0 .123.086l.48-.344.48.344a.079.079 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM8.787 5.922a.074.074 0 0 0-.147 0l-.19.563h-.59a.08.08 0 0 0-.049.142l.48.354-.18.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.08.08 0 0 0 .123-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM4.451 6.485l-.19-.563c-.023-.077-.128-.077-.13 0l-.19.563h-.608a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.048-.142h-.59zM6.72 4.986l-.19-.564c-.023-.065-.129-.065-.148 0l-.19.564h-.59a.08.08 0 0 0-.048.142l.48.354-.181.563a.08.08 0 0 0 .123.086l.48-.344.48.344a.078.078 0 0 0 .123-.086l-.18-.563.48-.354a.08.08 0 0 0-.049-.142zM11.246 4.986l-.19-.564c-.013-.065-.118-.065-.147 0l-.19.564h-.591a.08.08 0 0 0-.048.142l.48.354-.18.563a.08.08 0 0 0 .122.086l.48-.344.48.344a.08.08 0 0 0 .124-.086l-.181-.563.48-.354a.08.08 0 0 0-.048-.142zM8.978 3.555l-.19-.563c-.014-.066-.12-.066-.148 0l-.19.563h-.59a.08.08 0 0 0-.049.143l.48.353-.18.563a.08.08 0 0 0 .123.087l.48-.344.48.344a.078.078 0 0 0 .123-.087l-.181-.563.48-.353a.08.08 0 0 0-.048-.143zM13.515 3.555l-.19-.563c-.013-.066-.119-.066-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.143l.48.353-.181.563a.08.08 0 0 0 .123.087l.48-.344.48.344a.078.078 0 0 0 .123-.087l-.18-.563.48-.353a.08.08 0 0 0-.048-.143h-.59zM11.056 1.504a.074.074 0 1 0-.147 0l-.19.563h-.591a.08.08 0 0 0-.048.143l.48.353-.18.563a.08.08 0 0 0 .122.087l.48-.344.48.344a.078.078 0 0 0 .124-.087l-.181-.563.48-.353a.08.08 0 0 0-.048-.143h-.59z"></path></svg>
                                                 )}
                                             </span>
                                             <div className="deriv-account-switcher-item__detail">
@@ -2568,7 +2575,7 @@ const AppHeader = observer(() => {
                             ) : (
                                 <div className="no-account-state">
                                     <div className="no-account-state__icon">
-                                    <svg 
+                                        <svg 
                                             viewBox="0 0 24 24" 
                                             xmlns="http://www.w3.org/2000/svg" 
                                             className="open-padlock-icon"
@@ -2934,7 +2941,7 @@ const AppHeader = observer(() => {
                                             <div className="application-success">
                                                 <div className="success-icon">
                                                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 6.48 2 12 2ZM10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z" fill="#4CAF50"/>
+                                                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM10 17L5 12L6.41 10.59L10 14.17L17.59 6.58L19 8L10 17Z" fill="#4CAF50"/>
                                                     </svg>
                                                 </div>
                                                 <h3 className="success-title">Application Submitted!</h3>
