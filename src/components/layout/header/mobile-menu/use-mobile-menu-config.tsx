@@ -18,7 +18,10 @@ import {
     LegacyResponsibleTradingIcon,
     LegacyTheme1pxIcon,
     LegacyWhatsappIcon,
+    LegacyTelegramIcon,
 } from '@deriv/quill-icons/Legacy';
+import { SocialTiktokBrandIcon } from '@deriv/quill-icons/Social';
+
 import { BrandDerivLogoCoralIcon } from '@deriv/quill-icons/Logo';
 import { useTranslations } from '@deriv-com/translations';
 import { ToggleSwitch } from '@deriv-com/ui';
@@ -54,29 +57,44 @@ const useMobileMenuConfig = (client?: RootStore['client']) => {
     const menuConfig: TMenuConfig[] = [
         [
             {
-                as: 'a',
-                href: 'https://binaryfx.site',
-                label: localize('Binaryfx.site'),
-                LeftComponent: BrandDerivLogoCoralIcon,
-            },
-            {
                 as: 'button',
                 label: localize('Dark theme'),
                 LeftComponent: LegacyTheme1pxIcon,
                 RightComponent: <ToggleSwitch value={is_dark_mode_on} onChange={toggleTheme} />,
             },
-        ],
-        (
-            [
-                cs_chat_whatsapp
-                    ? {
+            {
+                as: 'a',
+                href: 'https://xdbtraders.app.vercel',
+                label: localize('x-dbtraders.com'),
+                LeftComponent: BrandDerivLogoCoralIcon,
+            },
+            {
                           as: 'a',
-                          href: 'https://wa.link/ugr27w',
+                          href: 'https://wa.me/254703699465',
                           label: localize('WhatsApp'),
                           LeftComponent: LegacyWhatsappIcon,
                           target: '_blank',
-                      }
-                    : null,
+            },
+            {
+                          as: 'a',
+                          href: 'https://t.me/SStarbboyy',
+                          label: localize('Telegram'),
+                          LeftComponent: LegacyTelegramIcon,
+                          target: '_blank',
+            },
+            
+            {
+                          as: 'a',
+                          href: 'https://tiktok.com',
+                          label: localize('Tiktok'),
+                          LeftComponent: SocialTiktokBrandIcon,
+                          target: '_blank',
+            },
+            
+        ],
+        (
+            [
+                
                 is_livechat_available || icAvailable
                     ? {
                           as: 'button',
