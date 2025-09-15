@@ -24,6 +24,7 @@ import RunStrategy from '../dashboard/run-strategy';
 const BotsPage = lazy(() => import('../bots/freebots'));
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
+const Copytrading = lazy(() => import('../copy-trading/copy-trading'));
 
 const DashboardIcon = () => (
     <svg width="20" height="20" fill="var(--text-general)" viewBox="0 0 24 24">
@@ -233,6 +234,15 @@ const AppWrapper = observer(() => {
                                 />
                             </Suspense>
                         </div>
+
+                        <div label={<><TradingHubIcon /><Localize i18n_default_text='Copy Trading' /></>} id='id-signals'>
+                            <Suspense fallback={<ChunkLoader message={localize('Please wait, loading page...')} />}>
+                                <Copytrading/>
+                            </Suspense>
+                        </div>
+
+
+                        
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signals' /></>} id='id-signals'>
                             <iframe src='signals' width='100%' height='500px' frameBorder='0'></iframe>
                         </div>
