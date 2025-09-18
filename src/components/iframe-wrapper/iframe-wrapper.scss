@@ -1,24 +1,15 @@
-// extracted by css-extract-rspack-plugin
-export {};
-    if(module.hot) {
-      (function() {
-        var localsJsonString = undefined;
-        // 1758141695072
-        var cssReload = require("../../../node_modules/@rspack/core/dist/cssExtractHmr.js").cssReload(module.id, {});
-        // only invalidate when locals change
-        if (
-          module.hot.data &&
-          module.hot.data.value &&
-          module.hot.data.value !== localsJsonString
-        ) {
-          module.hot.invalidate();
-        } else {
-          module.hot.accept();
-        }
-        module.hot.dispose(function(data) {
-          data.value = localsJsonString;
-          cssReload();
-        });
-      })();
-    }
-  
+.iframe-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding-top: 56.25%; // 16:9 aspect ratio (9 ÷ 16 = 0.5625)
+
+  &__frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+}
