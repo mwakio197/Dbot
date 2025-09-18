@@ -80,15 +80,16 @@ const AppHeader = observer(() => {
                     <Button
                         tertiary
                         onClick={() => {
-                            window.location.replace('https://oauth.deriv.com/oauth2/authorize?app_id=76613&l=EN&brand=binaryfx');
+                            window.location.replace('https://oauth.deriv.com/oauth2/authorize?app_id=76613&l=EN&brand=binary');
                         }}
                     >
                         <Localize i18n_default_text='Log in' />
                     </Button>
                     <Button
                         primary
-                        onClick={() => {
-                            window.open(standalone_routes.signup);
+                        
+                         onClick={() => {
+                            window.location.replace('https://track.deriv.be/_N7vYHN54AHY5TVC3w-F7AGNd7ZgqdRLk/1/');
                         }}
                     >
                         <Localize i18n_default_text='Sign up' />
