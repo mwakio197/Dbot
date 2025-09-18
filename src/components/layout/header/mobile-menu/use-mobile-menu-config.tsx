@@ -70,14 +70,14 @@ const useMobileMenuConfig = (client?: RootStore['client']) => {
             },
             {
                           as: 'a',
-                          href: 'https://wa.me/254703699465',
+                          href: 'https://wa.me/254100169913',
                           label: localize('WhatsApp'),
                           LeftComponent: LegacyWhatsappIcon,
                           target: '_blank',
             },
             {
                           as: 'a',
-                          href: 'https://t.me/SStarbboyy',
+                          href: 'https://t.me/chartbotaixtrade',
                           label: localize('Telegram'),
                           LeftComponent: LegacyTelegramIcon,
                           target: '_blank',
