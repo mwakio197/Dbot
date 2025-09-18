@@ -25,7 +25,7 @@ const BotsPage = lazy(() => import('../bots/freebots'));
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
 const Copytrading = lazy(() => import('../copy-trading/copy-trading'));
-const Dtrader = lazy(() => import('../dtrader'));
+const Dtrader = lazy(() => import('../d-trader'));
 
 
 const DashboardIcon = () => (
