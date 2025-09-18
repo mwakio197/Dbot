@@ -1,0 +1,24 @@
+// extracted by css-extract-rspack-plugin
+export {};
+    if(module.hot) {
+      (function() {
+        var localsJsonString = undefined;
+        // 1758141695072
+        var cssReload = require("../../../node_modules/@rspack/core/dist/cssExtractHmr.js").cssReload(module.id, {});
+        // only invalidate when locals change
+        if (
+          module.hot.data &&
+          module.hot.data.value &&
+          module.hot.data.value !== localsJsonString
+        ) {
+          module.hot.invalidate();
+        } else {
+          module.hot.accept();
+        }
+        module.hot.dispose(function(data) {
+          data.value = localsJsonString;
+          cssReload();
+        });
+      })();
+    }
+  
