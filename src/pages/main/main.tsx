@@ -25,6 +25,8 @@ const BotsPage = lazy(() => import('../bots/freebots'));
 const Chart = lazy(() => import('../chart'));
 const Tutorial = lazy(() => import('../tutorials'));
 const Copytrading = lazy(() => import('../copy-trading/copy-trading'));
+const Dtrader = lazy(() => import('../dtrader'));
+
 
 const DashboardIcon = () => (
     <svg width="20" height="20" fill="var(--text-general)" viewBox="0 0 24 24">
@@ -217,9 +219,11 @@ const AppWrapper = observer(() => {
                                 <Tutorial handleTabChange={handleTabChange} />
                             </Suspense>
                         </div>
+                        
                         <div label={<><AnalysisToolIcon /><Localize i18n_default_text='Analysis Tool' /></>} id='id-analysis-tool'>
-                            <iframe src='https://binaryfx.site/api_binaryfx' width='100%' height='500px' frameBorder='0'></iframe>
+                            <Dtrader/>
                         </div>
+                        
                          <div
                             label={<><FreeBotsIcon /><Localize i18n_default_text='Free Bots' /></>}
                             id='id-free-bots'
@@ -235,6 +239,8 @@ const AppWrapper = observer(() => {
                             </Suspense>
                         </div>
 
+                        
+
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Copy Trading' /></>} id='id-signals'>
                             <Suspense fallback={<ChunkLoader message={localize('Please wait, loading page...')} />}>
                                 <Copytrading/>
@@ -246,6 +252,7 @@ const AppWrapper = observer(() => {
                         <div label={<><SignalsIcon /><Localize i18n_default_text='Signals' /></>} id='id-signals'>
                             <iframe src='signals' width='100%' height='500px' frameBorder='0'></iframe>
                         </div>
+                        
                         <div label={<><TradingHubIcon /><Localize i18n_default_text='Trading Hub' /></>} id='id-Trading-Hub'>
                             <iframe src='https://binaryfx.site/acc-center' width='100%' height='500px' frameBorder='0'></iframe>
                         </div>
